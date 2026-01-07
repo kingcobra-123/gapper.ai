@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import posthog from "posthog-js"; // <--- IMPORT POSTHOG
 import {
   Terminal,
   Activity,
@@ -7,9 +8,44 @@ import {
   ArrowRight,
   Layers,
   ChevronRight,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import PipelineTelemetry from "./PipelineTelemetry";
 import { BriefCardShowcaseUltra } from "./BriefCardShowcaseUltra";
+
+// --- UTILITY: CLIENT-SIDE METADATA ---
+// Captures things the server can't see (Screen size, Source)
+const getClientMeta = () => {
+  if (typeof window === "undefined") return {};
+  return {
+    submitted_at_local: new Date().toLocaleString(),
+    screen_res: `${window.screen.width}x${window.screen.height}`,
+    referrer: document.referrer || "Direct/Bookmark",
+    browser_raw: navigator.userAgent, // Backup raw data
+  };
+};
+
+// --- UTILITY: CLOUDFLARE INTELLIGENCE ---
+// Fetches deep data (City, Zip, OS, Device) from your Worker
+const getIntelligence = async () => {
+  try {
+    const response = await fetch(
+      "https://geo-location.satish-kokkanti6641.workers.dev"
+    );
+
+    if (!response.ok) throw new Error("Worker failed");
+    return await response.json();
+  } catch (error) {
+    console.warn("Telemetry: Worker lookup failed");
+    // Fallback if worker fails
+    return {
+      status: "intelligence_failed",
+      country: "Unknown",
+      city: "Unknown",
+    };
+  }
+};
 
 // --- UTILITY: SMOOTH REVEAL TEXT ---
 const SmoothRevealText = ({ text, trigger, delay = 0 }) => {
@@ -17,10 +53,8 @@ const SmoothRevealText = ({ text, trigger, delay = 0 }) => {
 
   useEffect(() => {
     if (!trigger) return;
-
     let timeout;
     let interval;
-
     timeout = setTimeout(() => {
       let index = 0;
       interval = setInterval(() => {
@@ -29,13 +63,11 @@ const SmoothRevealText = ({ text, trigger, delay = 0 }) => {
         if (index >= text.length) clearInterval(interval);
       }, 50);
     }, delay);
-
     return () => {
       clearTimeout(timeout);
       clearInterval(interval);
     };
   }, [text, trigger, delay]);
-
   return <span className="font-mono tracking-normal">{display}</span>;
 };
 
@@ -416,8 +448,13 @@ const FeatureBox = ({ icon: Icon, title, desc }) => (
   </div>
 );
 
+// --- MAIN APP COMPONENT ---
 export default function App() {
   const [startAnim, setStartAnim] = useState(false);
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
   useEffect(() => {
     setStartAnim(true);
   }, []);
@@ -426,6 +463,70 @@ export default function App() {
     const accessSection = document.getElementById("access");
     if (accessSection) {
       accessSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  // --- FORM HANDLER ---
+  const handleJoinWaitlist = async (e) => {
+    e.preventDefault();
+    setErrorMessage("");
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      setErrorMessage("Please enter a valid email address.");
+      return;
+    }
+
+    setStatus("submitting");
+
+    // 1. AWAIT PARALLEL DATA FETCHING
+    // We want both Client Metadata and Cloudflare Intelligence
+    // We use Promise.all so they run at the same time (faster)
+    const [clientData, intelligenceData] = await Promise.all([
+      Promise.resolve(getClientMeta()), // Instant
+      getIntelligence(), // Async Network Request
+    ]);
+
+    // 2. CONSTRUCT PAYLOAD
+    const payload = {
+      email,
+      _subject: `New Lead (${
+        intelligenceData.worker_center || "Unknown"
+      }): ${email}`,
+      ...clientData,
+      ...intelligenceData,
+    };
+
+    // 3. SEND TO FORMSPREE
+    const FORMSPREE_ENDPOINT = "https://formspree.io/f/xnjnejje";
+
+    try {
+      const response = await fetch(FORMSPREE_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        setStatus("success");
+
+        // --- 4. POSTHOG IDENTIFICATION ---
+        // This is the magic step. It tells PostHog:
+        // "That anonymous user you've been tracking? It's THIS email."
+        posthog.identify(email);
+        posthog.capture("waitlist_submitted", {
+          location_center: intelligenceData.worker_center,
+          device_type: intelligenceData.device_type,
+        });
+
+        setEmail("");
+      } else {
+        setStatus("error");
+        setErrorMessage("Something went wrong. Please try again later.");
+      }
+    } catch (error) {
+      setStatus("error");
+      setErrorMessage("Network error. Please check your connection.");
     }
   };
 
@@ -456,7 +557,6 @@ export default function App() {
               <Zap size={14} /> NEXT-GEN MOMENTUM INTELLIGENCE
             </div>
 
-            {/* FIXED HEADLINE: Removed whitespace-nowrap, adjusted sizing */}
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold text-white mb-6 leading-[1.1] tracking-tight">
               <span className="block text-white whitespace-nowrap">
                 The Move Happens
@@ -466,7 +566,6 @@ export default function App() {
               </span>
             </h1>
 
-            {/* FIXED PUNCHLINE: Sizing adjusted */}
             <div className="text-lg md:text-xl font-bold font-mono tracking-wide mb-8">
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
                 <SmoothRevealText
@@ -477,7 +576,6 @@ export default function App() {
               </span>
             </div>
 
-            {/* Subtext */}
             <p className="text-base md:text-lg text-slate-400 mb-10 leading-relaxed max-w-xl">
               The crowd guesses. You don’t. Gapper’s multi-agent system reads
               news, SEC filings, PR, and socials, scans dilution risk, and
@@ -488,7 +586,6 @@ export default function App() {
               </span>
             </p>
 
-            {/* FIXED BUTTONS: Full width on mobile, auto on desktop */}
             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
               <button
                 onClick={scrollToAccess}
@@ -506,7 +603,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* TERMINAL */}
         <div className="relative z-10 mt-16 md:mt-20">
           <div className="max-w-4xl mx-auto">
             <div className="perspective-[2000px]">
@@ -518,7 +614,6 @@ export default function App() {
         </div>
       </section>
 
-      {/* BRIEF CARD */}
       <section className="py-24 px-6 relative">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
@@ -534,7 +629,6 @@ export default function App() {
         </div>
       </section>
 
-      {/* FEATURES GRID */}
       <section id="features" className="py-24 px-6 relative">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16 md:mb-20">
@@ -568,7 +662,6 @@ export default function App() {
         </div>
       </section>
 
-      {/* FIXED ACCESS SECTION: Adjusted padding and width */}
       <section id="access" className="py-24 px-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-[#030712] via-cyan-950/20 to-[#030712]"></div>
         <div className="max-w-4xl mx-auto text-center relative z-10 bg-slate-900/50 border border-white/10 p-8 md:p-16 rounded-3xl backdrop-blur-xl">
@@ -579,19 +672,65 @@ export default function App() {
             Gapper is currently restricted to a small group of high-volume
             traders. Secure your position in line for early access.
           </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4 max-w-md mx-auto w-full">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-6 py-4 text-white focus:outline-none focus:border-cyan-500 transition"
-            />
-            <button className="w-full sm:w-auto bg-white text-slate-950 px-8 py-4 rounded-lg font-bold hover:bg-cyan-50 transition whitespace-nowrap">
-              Secure My Edge
-            </button>
-          </div>
-          <p className="text-slate-500 text-sm mt-6">
-            Limited spots. Rolling invites.
-          </p>
+
+          {status === "success" ? (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-8 max-w-md mx-auto animate-[fadeIn_0.5s_ease-out]">
+              <div className="flex flex-col items-center">
+                <CheckCircle className="text-emerald-400 w-12 h-12 mb-4" />
+                <h3 className="text-xl font-bold text-white mb-2">
+                  Position Secured
+                </h3>
+                <p className="text-slate-400 text-sm">
+                  You have been added to the priority queue. <br />
+                  Keep an eye on your inbox for the invite.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <form
+              onSubmit={handleJoinWaitlist}
+              className="flex flex-col items-center max-w-md mx-auto w-full"
+            >
+              <div className="flex flex-col sm:flex-row gap-4 w-full">
+                <input
+                  type="email"
+                  name="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  disabled={status === "submitting"}
+                  className={`w-full bg-slate-950 border rounded-lg px-6 py-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 transition disabled:opacity-50 ${
+                    errorMessage
+                      ? "border-red-500/50 focus:border-red-500"
+                      : "border-slate-800"
+                  }`}
+                />
+                <button
+                  type="submit"
+                  disabled={status === "submitting"}
+                  className="w-full sm:w-auto bg-white text-slate-950 px-8 py-4 rounded-lg font-bold hover:bg-cyan-50 transition whitespace-nowrap disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center min-w-[160px]"
+                >
+                  {status === "submitting" ? (
+                    <Activity className="animate-spin w-5 h-5 text-slate-900" />
+                  ) : (
+                    "Secure Your Edge"
+                  )}
+                </button>
+              </div>
+              {errorMessage && (
+                <div className="flex items-center gap-2 mt-3 text-red-400 text-sm self-start animate-[fadeIn_0.3s_ease-out]">
+                  <AlertCircle size={14} />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+            </form>
+          )}
+
+          {status !== "success" && (
+            <p className="text-slate-500 text-sm mt-6">
+              Limited spots. Rolling invites.
+            </p>
+          )}
         </div>
       </section>
 
