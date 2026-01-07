@@ -52,56 +52,73 @@ const PipelineTelemetry = () => {
     const calculateLayout = () => {
       w = canvas.width / dpr;
       h = canvas.height / dpr;
-      const cx = w * 0.50;
+
+      // RESPONSIVE SCALING FACTOR
+      // If width is < 800px, scale everything down. Min scale 0.45 to keep it visible.
+      const baseWidth = 1200;
+      const scale = Math.max(0.45, Math.min(1, w / baseWidth));
+
+      const cx = w * 0.5;
       const cy = h * 0.5;
-      const leftX = w * 0.1;
+
+      // Tighten horizontal spacing on mobile
+      const leftX = w * (w < 600 ? 0.15 : 0.1);
+
+      // Vertical spacing for sources (scaled)
+      const srcY = 160 * scale;
+      const srcInnerY = 60 * scale;
 
       // 1. ENGINE
-      const engine = { x: cx, y: cy };
+      const engine = { x: cx, y: cy, scale };
 
       // 2. SOURCES (Left)
       const sources = [
         {
           x: leftX,
-          y: cy - 160,
+          y: cy - srcY,
           color: palette.cyan,
           group: "top",
           icon: "globe",
         },
         {
           x: leftX,
-          y: cy - 60,
+          y: cy - srcInnerY,
           color: palette.cyan,
           group: "top",
           icon: "doc",
         },
         {
           x: leftX,
-          y: cy + 60,
+          y: cy + srcInnerY,
           color: palette.emerald,
           group: "bot",
           icon: "chart",
         },
         {
           x: leftX,
-          y: cy + 160,
+          y: cy + srcY,
           color: palette.emerald,
           group: "bot",
           icon: "shield",
         },
       ];
 
-      // 3. CARD
-      const card = { x: w * 0.82, y: cy, w: 300, h: 400 };
+      // 3. CARD (Right) - Dimensions scaled
+      const cardW = 300 * scale;
+      const cardH = 400 * scale;
+      // Push card closer to center on small screens to fit
+      const cardX = w * (w < 600 ? 0.85 : 0.82);
+
+      const card = { x: cardX, y: cy, w: cardW, h: cardH, scale };
 
       // 4. INPUT PIPES
       const pipes = sources.map((src, i) => {
-        const targetY = engine.y + (i < 2 ? -10 : 20);
+        const targetY = engine.y + (i < 2 ? -10 * scale : 20 * scale);
         const cp1 = { x: src.x + (engine.x - src.x) * 0.5, y: src.y };
         const cp2 = { x: engine.x - (engine.x - src.x) * 0.5, y: targetY };
         return {
           start: src,
-          end: { x: engine.x - 30, y: targetY },
+          end: { x: engine.x - 30 * scale, y: targetY },
           cp1,
           cp2,
           color: src.color,
@@ -109,26 +126,25 @@ const PipelineTelemetry = () => {
       });
 
       // 5. OUTPUT PIPES (Top, Mid, Bot)
-      // Must align exactly with the drawing offsets of the stack
-      const cardLeft = { x: card.x - card.w / 2 - 20, y: card.y };
+      const cardLeft = { x: card.x - card.w / 2 - 20 * scale, y: card.y };
       const outPipes = [];
 
-      // Corresponds to [Top, Mid, Bot] visual layers
-      // Offsets must match drawInferenceStack: -18, 0, +18
-      const layerOffsets = [-18, 0, 18];
+      // Scaled layer offsets
+      const layerOff = 18 * scale;
+      const layerOffsets = [-layerOff, 0, layerOff];
 
       layerOffsets.forEach((offset) => {
-        const startPt = { x: engine.x + 30, y: engine.y + offset };
+        const startPt = { x: engine.x + 30 * scale, y: engine.y + offset };
         outPipes.push({
           start: startPt,
           end: cardLeft,
-          cp1: { x: engine.x + 100, y: startPt.y },
-          cp2: { x: cardLeft.x - 100, y: cardLeft.y },
+          cp1: { x: engine.x + 100 * scale, y: startPt.y },
+          cp2: { x: cardLeft.x - 100 * scale, y: cardLeft.y },
           color: palette.emerald,
         });
       });
 
-      layout = { sources, engine, card, pipes, outPipes };
+      layout = { sources, engine, card, pipes, outPipes, scale };
     };
 
     const resize = () => {
@@ -142,10 +158,10 @@ const PipelineTelemetry = () => {
 
     // --- DRAWING ---
 
-    const drawSourceCube = (s, opacity) => {
+    const drawSourceCube = (s, opacity, scale) => {
       if (opacity <= 0) return;
-      const size = 20;
-      const depth = 10;
+      const size = 20 * scale;
+      const depth = 10 * scale;
 
       ctx.save();
       ctx.translate(s.x, s.y);
@@ -163,13 +179,13 @@ const PipelineTelemetry = () => {
       ctx.lineTo(0, size);
       ctx.lineTo(-size * 1.2, 0);
       ctx.closePath();
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 15 * scale;
       ctx.shadowColor = strokeTop;
       ctx.fillStyle = fillTop;
       ctx.fill();
       ctx.shadowBlur = 0;
       ctx.strokeStyle = strokeTop;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1.5 * scale;
       ctx.stroke();
 
       // Sides
@@ -197,7 +213,7 @@ const PipelineTelemetry = () => {
 
       // Icon
       ctx.save();
-      ctx.scale(1, 0.5);
+      ctx.scale(scale, 0.5 * scale); // Scale icon
       ctx.strokeStyle = `rgba(${s.color}, 1)`;
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -234,44 +250,35 @@ const PipelineTelemetry = () => {
     };
 
     const drawInferenceStack = (e, state, timer, activeIdx) => {
-      const w = 60; // Diamond width radius
-      const h = 30; // Diamond height radius
+      const scale = e.scale;
+      const w = 60 * scale; // Scaled radius
+      const h = 30 * scale; // Scaled radius
 
       ctx.save();
       ctx.translate(e.x, e.y);
 
-      // Determine visual active layer for scanning effect
-      // Scan goes Bottom (2) -> Mid (1) -> Top (0)
       let scanLayer = -1;
       if (state === 3) {
-        // timer roughly 0 to 1.5
-        // map to indices 2, 1, 0
-        const phase = Math.floor(timer * 2.5); // 0, 1, 2
+        const phase = Math.floor(timer * 2.5);
         scanLayer = 2 - (phase % 3);
       }
 
-      // **CRITICAL FIX: DRAW ORDER**
-      // We must draw Bottom Layer (Index 2) -> Mid (1) -> Top (0)
-      // so top layers cover bottom layers.
       const drawOrder = [2, 1, 0];
 
       drawOrder.forEach((layerIdx) => {
-        // Offsets: Top(0)=-18, Mid(1)=0, Bot(2)=+18
-        const yOff = (layerIdx - 1) * 18;
+        // Scaled offset: 18 * scale
+        const yOff = (layerIdx - 1) * (18 * scale);
 
         let stroke = `rgba(${palette.slate}, 0.5)`;
         let fill = `rgba(${palette.dark}, 0.8)`;
         let glow = 0;
-        let lineWidth = 1;
+        let lineWidth = 1 * scale;
 
-        // Base visibility: visible from state 3 onwards
-        // Seamless Fade Out: Controlled by global alpha in main loop
         let alpha = state >= 3 ? 1 : 0;
         if (alpha <= 0) return;
 
         ctx.globalAlpha = alpha;
 
-        // Highlighting
         const isScanning = state === 3 && layerIdx === scanLayer;
         const isFiring = state === 4 && layerIdx === activeIdx;
 
@@ -280,13 +287,12 @@ const PipelineTelemetry = () => {
           fill = isFiring
             ? `rgba(${palette.emerald}, 0.5)`
             : `rgba(${palette.emerald}, 0.2)`;
-          glow = isFiring ? 30 : 15;
-          lineWidth = 2;
+          glow = isFiring ? 30 * scale : 15 * scale;
+          lineWidth = 2 * scale;
         } else if (state >= 3) {
           stroke = `rgba(${palette.cyan}, 0.3)`;
         }
 
-        // Draw Diamond
         ctx.beginPath();
         ctx.moveTo(0, yOff - h);
         ctx.lineTo(w, yOff);
@@ -302,9 +308,7 @@ const PipelineTelemetry = () => {
         ctx.strokeStyle = stroke;
         ctx.stroke();
 
-        // Thickness (Sides) - only if not the absolute bottom visual layer?
-        // Actually all layers need thickness for 3D look
-        const depth = 6;
+        const depth = 6 * scale;
         ctx.beginPath();
         ctx.moveTo(-w, yOff);
         ctx.lineTo(0, yOff + h);
@@ -319,16 +323,14 @@ const PipelineTelemetry = () => {
 
         ctx.shadowBlur = 0;
 
-        // EMISSION FLASH
-        // Only draw flash on the specific firing layer
         if (state === 4 && layerIdx === activeIdx && timer < 0.15) {
           ctx.save();
-          ctx.translate(w + 10, yOff); // Flash at right tip
+          ctx.translate(w + 10 * scale, yOff);
           ctx.fillStyle = "#fff";
-          ctx.shadowBlur = 40;
+          ctx.shadowBlur = 40 * scale;
           ctx.shadowColor = "#fff";
           ctx.beginPath();
-          ctx.arc(0, 0, 15, 0, Math.PI * 2);
+          ctx.arc(0, 0, 15 * scale, 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
         }
@@ -339,12 +341,14 @@ const PipelineTelemetry = () => {
 
     const drawCard = (c, opacity, progress) => {
       if (opacity <= 0) return;
+      const scale = c.scale;
+
       ctx.save();
       ctx.translate(c.x - c.w / 2, c.y - c.h / 2);
       ctx.globalAlpha = opacity;
 
       // 3D Body
-      const depth = 12;
+      const depth = 12 * scale;
       ctx.fillStyle = "#0f172a";
       ctx.beginPath();
       ctx.moveTo(c.w, 0);
@@ -364,77 +368,106 @@ const PipelineTelemetry = () => {
       // Face
       ctx.fillStyle = `rgba(15, 23, 42, 0.95)`;
       ctx.strokeStyle = `rgba(${palette.cyan}, 0.4)`;
-      ctx.lineWidth = 1;
-      ctx.shadowBlur = 20;
+      ctx.lineWidth = 1 * scale;
+      ctx.shadowBlur = 20 * scale;
       ctx.shadowColor = `rgba(${palette.cyan}, 0.15)`;
       ctx.beginPath();
-      ctx.roundRect(0, 0, c.w, c.h, 12);
+      if (ctx.roundRect) ctx.roundRect(0, 0, c.w, c.h, 12 * scale);
+      else ctx.rect(0, 0, c.w, c.h); // Fallback
       ctx.fill();
       ctx.stroke();
       ctx.shadowBlur = 0;
 
-      // Content Stagger
-      const p = 20;
+      // Content Stagger (Scaled padding/widths)
+      const p = 20 * scale;
       const cw = c.w - p * 2;
+
       const bar = (y, w, col) => {
         ctx.fillStyle = col;
         ctx.beginPath();
-        ctx.roundRect(p, y, w, 8, 4);
+        if (ctx.roundRect) ctx.roundRect(p, y, w, 8 * scale, 4 * scale);
+        else ctx.rect(p, y, w, 8 * scale);
         ctx.fill();
       };
 
       if (progress > 0.1) {
         ctx.fillStyle = `rgba(${palette.slate},0.3)`;
         ctx.beginPath();
-        ctx.roundRect(p, p, cw * 0.6, 20, 4);
+        if (ctx.roundRect) ctx.roundRect(p, p, cw * 0.6, 20 * scale, 4 * scale);
+        else ctx.rect(p, p, cw * 0.6, 20 * scale);
         ctx.fill();
+
         ctx.fillStyle = `rgba(${palette.emerald},0.2)`;
         ctx.beginPath();
-        ctx.roundRect(c.w - p - 60, p, 60, 20, 10);
+        if (ctx.roundRect)
+          ctx.roundRect(
+            c.w - p - 60 * scale,
+            p,
+            60 * scale,
+            20 * scale,
+            10 * scale
+          );
+        else ctx.rect(c.w - p - 60 * scale, p, 60 * scale, 20 * scale);
         ctx.fill();
       }
       if (progress > 0.3) {
         ctx.strokeStyle = `rgba(${palette.cyan},0.3)`;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1 * scale;
         ctx.fillStyle = `rgba(${palette.cyan},0.1)`;
         ctx.beginPath();
-        ctx.roundRect(p, p + 40, cw, 70, 8);
+        if (ctx.roundRect)
+          ctx.roundRect(p, p + 40 * scale, cw, 70 * scale, 8 * scale);
+        else ctx.rect(p, p + 40 * scale, cw, 70 * scale);
         ctx.fill();
         ctx.stroke();
-        bar(p + 60, cw * 0.5, `rgba(${palette.cyan},0.6)`);
-        bar(p + 80, cw * 0.8, `rgba(${palette.cyan},0.3)`);
+        bar(p + 60 * scale, cw * 0.5, `rgba(${palette.cyan},0.6)`);
+        bar(p + 80 * scale, cw * 0.8, `rgba(${palette.cyan},0.3)`);
       }
       if (progress > 0.5) {
-        const bw = (cw - 10) / 2;
+        const bw = (cw - 10 * scale) / 2;
+        const startY = p + 130 * scale;
+        const hBlock = 40 * scale;
         ctx.fillStyle = `rgba(${palette.slate},0.1)`;
-        ctx.fillRect(p, p + 130, bw, 40);
-        ctx.fillRect(p + bw + 10, p + 130, bw, 40);
-        ctx.fillRect(p, p + 180, bw, 40);
-        ctx.fillRect(p + bw + 10, p + 180, bw, 40);
+        ctx.fillRect(p, startY, bw, hBlock);
+        ctx.fillRect(p + bw + 10 * scale, startY, bw, hBlock);
+        ctx.fillRect(p, startY + 50 * scale, bw, hBlock);
+        ctx.fillRect(p + bw + 10 * scale, startY + 50 * scale, bw, hBlock);
         ctx.fillStyle = palette.emerald;
-        ctx.fillRect(p + bw + 20, p + 150, 40, 4);
+        ctx.fillRect(
+          p + bw + 20 * scale,
+          startY + 20 * scale,
+          40 * scale,
+          4 * scale
+        );
       }
       if (progress > 0.7) {
-        const y = p + 240;
+        const y = p + 240 * scale;
         ctx.fillStyle = `rgba(${palette.slate},0.2)`;
         ctx.beginPath();
-        ctx.roundRect(p, y, 60, 16, 8);
+        if (ctx.roundRect)
+          ctx.roundRect(p, y, 60 * scale, 16 * scale, 8 * scale);
+        else ctx.rect(p, y, 60 * scale, 16 * scale);
         ctx.fill();
         ctx.beginPath();
-        ctx.roundRect(p + 70, y, 60, 16, 8);
+        if (ctx.roundRect)
+          ctx.roundRect(p + 70 * scale, y, 60 * scale, 16 * scale, 8 * scale);
+        else ctx.rect(p + 70 * scale, y, 60 * scale, 16 * scale);
         ctx.fill();
         ctx.fillStyle = `rgba(${palette.red},0.3)`;
         ctx.beginPath();
-        ctx.roundRect(p + 140, y, 60, 16, 8);
+        if (ctx.roundRect)
+          ctx.roundRect(p + 140 * scale, y, 60 * scale, 16 * scale, 8 * scale);
+        else ctx.rect(p + 140 * scale, y, 60 * scale, 16 * scale);
         ctx.fill();
       }
       if (progress > 0.85) {
-        const y = p + 280;
+        const y = p + 280 * scale;
         ctx.fillStyle = `rgba(${palette.slate},0.1)`;
         ctx.beginPath();
-        ctx.roundRect(p, y, cw, 60, 8);
+        if (ctx.roundRect) ctx.roundRect(p, y, cw, 60 * scale, 8 * scale);
+        else ctx.rect(p, y, cw, 60 * scale);
         ctx.fill();
-        bar(y + 25, 80, palette.emerald);
+        bar(y + 25 * scale, 80 * scale, palette.emerald);
       }
       ctx.restore();
     };
@@ -446,7 +479,7 @@ const PipelineTelemetry = () => {
       timer += dt;
 
       ctx.clearRect(0, 0, w, h);
-      const { sources, engine, card, pipes, outPipes } = layout;
+      const { sources, engine, card, pipes, outPipes, scale } = layout;
 
       // 0. RESET FADE LOGIC
       let masterOpacity = 1;
@@ -459,6 +492,7 @@ const PipelineTelemetry = () => {
       }
       ctx.save();
       ctx.globalAlpha = masterOpacity;
+      // Center shift slightly
       ctx.translate(w * 0.05, 0);
 
       // 1. LEFT PIPES
@@ -472,18 +506,18 @@ const PipelineTelemetry = () => {
         ctx.strokeStyle = active
           ? `rgba(${p.color}, 0.6)`
           : `rgba(${p.color}, 0.1)`;
-        ctx.lineWidth = active ? 2 : 1;
+        ctx.lineWidth = (active ? 2 : 1) * scale;
         ctx.stroke();
       });
 
-      // 2. RIGHT PIPE (Only the Active Lane)
+      // 2. RIGHT PIPE
       if (state >= 4) {
         const p = outPipes[activeOutputIndex];
         ctx.beginPath();
         ctx.moveTo(p.start.x, p.start.y);
         ctx.bezierCurveTo(p.cp1.x, p.cp1.y, p.cp2.x, p.cp2.y, p.end.x, p.end.y);
         ctx.strokeStyle = `rgba(${palette.emerald}, 0.6)`;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 * scale;
         ctx.stroke();
       }
 
@@ -507,7 +541,7 @@ const PipelineTelemetry = () => {
       if (state === 2 && timer > 1.2) {
         state = 3;
         timer = 0;
-        activeOutputIndex = Math.floor(Math.random() * 3); // Pick 0, 1, or 2
+        activeOutputIndex = Math.floor(Math.random() * 3);
       }
       if (state === 3 && timer > 1.5) {
         state = 4;
@@ -538,11 +572,10 @@ const PipelineTelemetry = () => {
         let op = 0;
         if (s.group === "top" && state >= 1) op = 1;
         if (s.group === "bot" && state >= 2) op = 1;
-        drawSourceCube(s, op);
+        drawSourceCube(s, op, scale);
       });
 
-      // 5. DRAW STACK (AI CORE)
-      // activeOutputIndex determines which layer flashes
+      // 5. DRAW STACK
       drawInferenceStack(engine, state, timer, activeOutputIndex);
 
       // 6. DRAW CARD
@@ -562,8 +595,8 @@ const PipelineTelemetry = () => {
             sparks.push({
               x: target.x,
               y: target.y,
-              vx: (Math.random() - 0.5) * 4,
-              vy: (Math.random() - 0.5) * 4,
+              vx: (Math.random() - 0.5) * 4 * scale,
+              vy: (Math.random() - 0.5) * 4 * scale,
               life: 1,
               color: p.color,
             });
@@ -576,11 +609,11 @@ const PipelineTelemetry = () => {
           p.path.cp2,
           p.path.end
         );
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 15 * scale;
         ctx.shadowColor = p.color;
         ctx.fillStyle = p.color;
         ctx.beginPath();
-        ctx.arc(pos.x, pos.y, 5, 0, Math.PI * 2);
+        ctx.arc(pos.x, pos.y, 5 * scale, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
       }
@@ -593,7 +626,7 @@ const PipelineTelemetry = () => {
         if (s.life <= 0) sparks.splice(i, 1);
         ctx.globalAlpha = s.life * masterOpacity;
         ctx.fillStyle = s.color;
-        ctx.fillRect(s.x, s.y, 2, 2);
+        ctx.fillRect(s.x, s.y, 2 * scale, 2 * scale);
       });
 
       ctx.restore();

@@ -27,7 +27,7 @@ const SmoothRevealText = ({ text, trigger, delay = 0 }) => {
         setDisplay(text.substring(0, index + 1));
         index++;
         if (index >= text.length) clearInterval(interval);
-      }, 50); // Speed of typing
+      }, 50);
     }, delay);
 
     return () => {
@@ -46,12 +46,8 @@ const GapperMark = ({ className = "w-7 h-7" }) => {
   return (
     <svg
       viewBox="0 0 62 62"
-      role="img"
-      aria-label="Gapper.ai"
       className={className}
-      style={{
-        filter: "drop-shadow(0 0 10px rgba(34,211,238,.22))",
-      }}
+      style={{ filter: "drop-shadow(0 0 10px rgba(34,211,238,.22))" }}
     >
       <defs>
         <filter id="gapperGlow" x="-80%" y="-80%" width="260%" height="260%">
@@ -61,13 +57,11 @@ const GapperMark = ({ className = "w-7 h-7" }) => {
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-
         <linearGradient id="gapperCutEdge" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="rgba(34,211,238,0)" />
           <stop offset=".55" stopColor="rgba(34,211,238,.55)" />
           <stop offset="1" stopColor="rgba(52,211,153,0)" />
         </linearGradient>
-
         <mask id="gapperRevealCut">
           <rect x="0" y="0" width="62" height="62" fill="black" />
           <rect x="0" y="50" width="62" height="0" fill="white">
@@ -88,34 +82,15 @@ const GapperMark = ({ className = "w-7 h-7" }) => {
           </rect>
         </mask>
       </defs>
-
       <style>{`
-        .g-layer{
-          fill: rgba(255,255,255,.03);
-          stroke: rgba(148,163,184,.22);
-          stroke-width: 2.2;
-          stroke-linejoin: round;
-        }
-        .g-a{
-          stroke: rgba(34,211,238,.85);
-          fill: rgba(34,211,238,.10);
-          filter: url(#gapperGlow);
-        }
-        .g-b{
-          stroke: rgba(52,211,153,.85);
-          fill: rgba(52,211,153,.10);
-          filter: url(#gapperGlow);
-        }
-        @keyframes glowPulse {
-          0%, 12%   { opacity: .20; }
-          18%, 34%  { opacity: 1; }
-          45%, 100% { opacity: .22; }
-        }
+        .g-layer{ fill: rgba(255,255,255,.03); stroke: rgba(148,163,184,.22); stroke-width: 2.2; stroke-linejoin: round; }
+        .g-a{ stroke: rgba(34,211,238,.85); fill: rgba(34,211,238,.10); filter: url(#gapperGlow); }
+        .g-b{ stroke: rgba(52,211,153,.85); fill: rgba(52,211,153,.10); filter: url(#gapperGlow); }
+        @keyframes glowPulse { 0%, 12% { opacity: .20; } 18%, 34% { opacity: 1; } 45%, 100% { opacity: .22; } }
         #gL3 { animation: glowPulse 1.8s ease-in-out infinite; }
         #gL2 { animation: glowPulse 1.8s ease-in-out infinite .22s; }
         #gL1 { animation: glowPulse 1.8s ease-in-out infinite .44s; }
       `}</style>
-
       <path
         id="gL1"
         className="g-layer g-a"
@@ -127,7 +102,6 @@ const GapperMark = ({ className = "w-7 h-7" }) => {
         d="M31 18 49 30 31 42 13 30 31 18Z"
       />
       <path id="gL3" className="g-layer" d="M31 26 49 38 31 50 13 38 31 26Z" />
-
       <g mask="url(#gapperRevealCut)">
         <rect
           x="29"
@@ -155,85 +129,59 @@ const GapperMark = ({ className = "w-7 h-7" }) => {
 // --- BACKGROUND ANIMATION ---
 const ParticleNetwork = () => {
   const canvasRef = useRef(null);
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
     let animationFrameId;
     let particles = [];
-    const particleCount = window.innerWidth < 768 ? 40 : 80;
+    const particleCount = window.innerWidth < 768 ? 30 : 80;
     const connectionDistance = 150;
     const moveSpeed = 0.3;
-
     const resize = () => {
-      if (!canvas) return;
-      const dpr = window.devicePixelRatio || 1;
-      const rect = canvas.getBoundingClientRect();
-      let width = rect.width;
-      let height = rect.height;
-
-      if (width === 0 || height === 0) {
-        width = window.innerWidth;
-        height = window.innerHeight;
+      const parent = canvas.parentElement;
+      if (parent) {
+        canvas.width = parent.clientWidth * window.devicePixelRatio;
+        canvas.height = parent.clientHeight * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
       }
-
-      if (width > 0 && height > 0) {
-        canvas.width = width * dpr;
-        canvas.height = height * dpr;
-        ctx.scale(dpr, dpr);
-        init();
-      }
+      init();
     };
-
     class Particle {
       constructor() {
-        if (!canvas) return;
-        const dpr = window.devicePixelRatio || 1;
-        const w = canvas.width / dpr;
-        const h = canvas.height / dpr;
-        this.x = Math.random() * w;
-        this.y = Math.random() * h;
+        this.x = Math.random() * (canvas.width / window.devicePixelRatio);
+        this.y = Math.random() * (canvas.height / window.devicePixelRatio);
         this.vx = (Math.random() - 0.5) * moveSpeed;
         this.vy = (Math.random() - 0.5) * moveSpeed;
         this.size = Math.random() * 2 + 1;
       }
       update() {
-        if (!canvas) return;
-        const w = canvas.width / (window.devicePixelRatio || 1);
-        const h = canvas.height / (window.devicePixelRatio || 1);
         this.x += this.vx;
         this.y += this.vy;
+        const w = canvas.width / window.devicePixelRatio;
+        const h = canvas.height / window.devicePixelRatio;
         if (this.x < 0 || this.x > w) this.vx *= -1;
         if (this.y < 0 || this.y > h) this.vy *= -1;
       }
       draw() {
-        if (!ctx) return;
         ctx.fillStyle = "rgba(6, 182, 212, 0.5)";
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
       }
     }
-
     const init = () => {
-      if (!canvas) return;
       particles = [];
       for (let i = 0; i < particleCount; i++) particles.push(new Particle());
     };
-
     const animate = () => {
-      if (!canvas || !ctx) return;
-      const dpr = window.devicePixelRatio || 1;
-      const w = canvas.width / dpr;
-      const h = canvas.height / dpr;
-      if (w === 0 || h === 0) {
-        animationFrameId = requestAnimationFrame(animate);
-        return;
-      }
-      ctx.clearRect(0, 0, w, h);
+      ctx.clearRect(
+        0,
+        0,
+        canvas.width / window.devicePixelRatio,
+        canvas.height / window.devicePixelRatio
+      );
       particles.forEach((p) => {
         p.update();
         p.draw();
@@ -243,10 +191,11 @@ const ParticleNetwork = () => {
         for (let j = i + 1; j < particles.length; j++) {
           const dx = particles[i].x - particles[j].x;
           const dy = particles[i].y - particles[j].y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          if (distance < connectionDistance) {
-            const opacity = 1 - distance / connectionDistance;
-            ctx.strokeStyle = `rgba(6, 182, 212, ${opacity * 0.4})`;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < connectionDistance) {
+            ctx.strokeStyle = `rgba(6, 182, 212, ${
+              1 - (dist / connectionDistance) * 0.4
+            })`;
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
@@ -256,27 +205,18 @@ const ParticleNetwork = () => {
       }
       animationFrameId = requestAnimationFrame(animate);
     };
-
-    const setup = () => {
-      if (!canvas || !ctx) return;
-      resize();
-      init();
-      animate();
-    };
-    let timeoutId = setTimeout(setup, 0);
+    resize();
+    animate();
     window.addEventListener("resize", resize);
     return () => {
       window.removeEventListener("resize", resize);
-      if (animationFrameId) cancelAnimationFrame(animationFrameId);
-      if (timeoutId) clearTimeout(timeoutId);
+      cancelAnimationFrame(animationFrameId);
     };
   }, []);
-
   return (
     <canvas
       ref={canvasRef}
       className="absolute inset-0 z-0 opacity-40 pointer-events-none w-full h-full"
-      style={{ width: "100%", height: "100%" }}
     />
   );
 };
@@ -494,31 +434,39 @@ export default function App() {
       <Navbar />
 
       {/* HERO SECTION */}
-      <section className="relative pt-40 pb-32 px-6 overflow-hidden">
+      <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-6 overflow-hidden">
         <ParticleNetwork />
+
+        {/* Telemetry: Visible on Mobile & Desktop */}
         <div className="absolute inset-x-0 top-0 pointer-events-none">
           <div className="relative max-w-7xl mx-auto h-[640px] md:h-[760px] lg:h-[860px]">
             <PipelineTelemetry />
           </div>
         </div>
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-600/20 rounded-full blur-[128px] pointer-events-none"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-emerald-600/10 rounded-full blur-[128px] pointer-events-none"></div>
 
-        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center relative z-10">
+        {/* Mobile Atmosphere */}
+        <div className="absolute inset-0 md:hidden pointer-events-none overflow-hidden">
+          <div className="absolute top-0 left-1/4 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px]"></div>
+          <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px]"></div>
+        </div>
+
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-16 items-center relative z-10">
           <div>
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm font-mono text-cyan-300 mb-8 backdrop-blur-sm">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-xs md:text-sm font-mono text-cyan-300 mb-8 backdrop-blur-sm">
               <Zap size={14} /> NEXT-GEN MOMENTUM INTELLIGENCE
             </div>
 
-            {/* --- UPDATED HEADLINE & COPY --- */}
-            <h1 className="text-5xl md:text-7xl font-extrabold text-white mb-6 leading-[1.1] tracking-tight">
-              <span className="block text-white whitespace-nowrap">The Move Happens</span>
+            {/* FIXED HEADLINE: Removed whitespace-nowrap, adjusted sizing */}
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold text-white mb-6 leading-[1.1] tracking-tight">
+              <span className="block text-white whitespace-nowrap">
+                The Move Happens
+              </span>
               <span className="block text-slate-500">
                 Before You Find The Reason.
               </span>
             </h1>
 
-            {/* Smaller, Styled Punchline */}
+            {/* FIXED PUNCHLINE: Sizing adjusted */}
             <div className="text-lg md:text-xl font-bold font-mono tracking-wide mb-8">
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
                 <SmoothRevealText
@@ -529,8 +477,8 @@ export default function App() {
               </span>
             </div>
 
-            {/* Updated Subtext */}
-            <p className="text-lg text-slate-400 mb-10 leading-relaxed max-w-xl">
+            {/* Subtext */}
+            <p className="text-base md:text-lg text-slate-400 mb-10 leading-relaxed max-w-xl">
               The crowd guesses. You don’t. Gapper’s multi-agent system reads
               news, SEC filings, PR, and socials, scans dilution risk, and
               delivers the only question that matters:
@@ -540,16 +488,17 @@ export default function App() {
               </span>
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4">
+            {/* FIXED BUTTONS: Full width on mobile, auto on desktop */}
+            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
               <button
                 onClick={scrollToAccess}
-                className="bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white px-8 py-4 rounded-lg text-lg font-bold transition shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-3"
+                className="w-full sm:w-auto bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white px-8 py-4 rounded-lg text-lg font-bold transition shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-3"
               >
                 Request Terminal Access <ArrowRight />
               </button>
               <button
                 onClick={scrollToAccess}
-                className="bg-transparent border border-slate-700 hover:border-slate-500 text-slate-300 px-8 py-4 rounded-lg text-lg font-bold transition flex items-center justify-center gap-3"
+                className="w-full sm:w-auto bg-transparent border border-slate-700 hover:border-slate-500 text-slate-300 px-8 py-4 rounded-lg text-lg font-bold transition flex items-center justify-center gap-3"
               >
                 Watch the Demo
               </button>
@@ -558,10 +507,10 @@ export default function App() {
         </div>
 
         {/* TERMINAL */}
-        <div className="relative z-10 mt-14">
+        <div className="relative z-10 mt-16 md:mt-20">
           <div className="max-w-4xl mx-auto">
             <div className="perspective-[2000px]">
-              <div className="transform-gpu rotate-y-[-5deg] rotate-x-[2deg] hover:rotate-0 transition-all duration-1000 ease-out origin-top scale-[1.06] md:scale-[1.10]">
+              <div className="transform-gpu rotate-y-[-5deg] rotate-x-[2deg] hover:rotate-0 transition-all duration-1000 ease-out origin-top scale-[1] md:scale-[1.10]">
                 <TerminalAnimation />
               </div>
             </div>
@@ -570,7 +519,7 @@ export default function App() {
       </section>
 
       {/* BRIEF CARD */}
-      <section className="py-32 px-6 relative">
+      <section className="py-24 px-6 relative">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
@@ -588,8 +537,7 @@ export default function App() {
       {/* FEATURES GRID */}
       <section id="features" className="py-24 px-6 relative">
         <div className="max-w-7xl mx-auto">
-          {/* Section Header */}
-          <div className="text-center mb-20">
+          <div className="text-center mb-16 md:mb-20">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 tracking-tight">
               Complete Market Situational Awareness
             </h2>
@@ -600,20 +548,17 @@ export default function App() {
             </p>
           </div>
 
-          {/* Feature Cards */}
           <div className="grid md:grid-cols-3 gap-6">
             <FeatureBox
               icon={Layers}
               title="Multi-Agent Synthesis"
               desc="Multi specialized agents work in concert to cross-reference news, SEC filings, and technicals—hallucination-proofing every signal."
             />
-
             <FeatureBox
               icon={Shield}
               title="The Dilution Shield"
               desc="Rug pulls hide in the filings. We instantly parse active S-3 and ATM shelf registrations to detect toxic financing before the trap snaps shut."
             />
-
             <FeatureBox
               icon={Terminal}
               title="Sub-200ms Latency"
@@ -623,24 +568,24 @@ export default function App() {
         </div>
       </section>
 
-      {/* ACCESS */}
-      <section id="access" className="py-32 px-6 relative overflow-hidden">
+      {/* FIXED ACCESS SECTION: Adjusted padding and width */}
+      <section id="access" className="py-24 px-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-[#030712] via-cyan-950/20 to-[#030712]"></div>
-        <div className="max-w-4xl mx-auto text-center relative z-10 bg-slate-900/50 border border-white/10 p-16 rounded-3xl backdrop-blur-xl">
-          <h2 className="text-4xl font-bold text-white mb-6">
+        <div className="max-w-4xl mx-auto text-center relative z-10 bg-slate-900/50 border border-white/10 p-8 md:p-16 rounded-3xl backdrop-blur-xl">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 leading-tight">
             Get the unfair advantage—before it’s public.
           </h2>
-          <p className="text-slate-300 mb-10 text-lg">
+          <p className="text-slate-300 mb-10 text-base md:text-lg">
             Gapper is currently restricted to a small group of high-volume
             traders. Secure your position in line for early access.
           </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4 max-w-md mx-auto">
+          <div className="flex flex-col sm:flex-row justify-center gap-4 max-w-md mx-auto w-full">
             <input
               type="email"
               placeholder="Enter your email"
-              className="bg-slate-950 border border-slate-800 rounded-lg px-6 py-4 text-white focus:outline-none focus:border-cyan-500 transition w-full"
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-6 py-4 text-white focus:outline-none focus:border-cyan-500 transition"
             />
-            <button className="bg-white text-slate-950 px-8 py-4 rounded-lg font-bold hover:bg-cyan-50 transition whitespace-nowrap">
+            <button className="w-full sm:w-auto bg-white text-slate-950 px-8 py-4 rounded-lg font-bold hover:bg-cyan-50 transition whitespace-nowrap">
               Secure My Edge
             </button>
           </div>
