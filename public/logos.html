@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Gapper.ai — Agent Stack (Animated Mark)</title>
+  <style>
+    :root{
+      --bg:#030712;
+      --cyan:#22d3ee;
+      --emerald:#34d399;
+      --slate:#94a3b8;
+      --cut:#030712;
+    }
+
+    body{
+      margin:0;
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      background:var(--bg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+
+    svg{
+      width:min(220px, 60vw);
+      height:auto;
+      overflow:visible;
+      filter: drop-shadow(0 0 10px rgba(34,211,238,.22));
+    }
+
+    .layer{
+      fill: rgba(255,255,255,.03);
+      stroke: rgba(148,163,184,.22);
+      stroke-width: 2.2;
+      stroke-linejoin: round;
+    }
+    .a{
+      stroke: rgba(34,211,238,.85);
+      fill: rgba(34,211,238,.10);
+      filter: url(#glow);
+    }
+    .b{
+      stroke: rgba(52,211,153,.85);
+      fill: rgba(52,211,153,.10);
+      filter: url(#glow);
+    }
+
+    /* Bottom -> Mid -> Top scan (as requested) */
+    @keyframes glowPulse {
+      0%, 12%   { opacity: .20; }
+      18%, 34%  { opacity: 1; }
+      45%, 100% { opacity: .22; }
+    }
+    #L3 { animation: glowPulse 1.8s ease-in-out infinite; }         /* bottom */
+    #L2 { animation: glowPulse 1.8s ease-in-out infinite .22s; }    /* mid */
+    #L1 { animation: glowPulse 1.8s ease-in-out infinite .44s; }    /* top */
+
+    @media (prefers-reduced-motion: reduce){
+      #L1,#L2,#L3 { animation:none !important; }
+      animate { display:none !important; }
+    }
+  </style>
+</head>
+
+<body>
+  <svg viewBox="0 0 62 62" role="img" aria-label="Gapper.ai Agent Stack Mark">
+    <defs>
+      <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+        <feGaussianBlur stdDeviation="2.4" result="b"/>
+        <feMerge>
+          <feMergeNode in="b"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+
+      <!-- subtle edge highlight for the cut -->
+      <linearGradient id="cutEdge" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="rgba(34,211,238,0)"/>
+        <stop offset=".55" stop-color="rgba(34,211,238,.55)"/>
+        <stop offset="1" stop-color="rgba(52,211,153,0)"/>
+      </linearGradient>
+
+      <!-- Mask reveals the cut from BOTTOM EDGE (y=50) up to slightly ABOVE TOP (y=8). -->
+      <!-- This guarantees the cut NEVER goes below the bottom layer. -->
+      <mask id="revealCut">
+        <rect x="0" y="0" width="62" height="62" fill="black"></rect>
+        <!-- Start at y=50 with height 0, then grow up to y=8 with height 42 -->
+        <rect id="revealRect" x="0" y="50" width="62" height="0" fill="white">
+          <animate attributeName="y" values="50;8;8;50" dur="1.8s" repeatCount="indefinite" keyTimes="0;0.55;0.75;1" />
+          <animate attributeName="height" values="0;42;42;0" dur="1.8s" repeatCount="indefinite" keyTimes="0;0.55;0.75;1" />
+        </rect>
+      </mask>
+    </defs>
+
+    <!-- TOP -->
+    <path id="L1" class="layer a" d="M31 10 49 22 31 34 13 22 31 10Z"/>
+    <!-- MID -->
+    <path id="L2" class="layer b" d="M31 18 49 30 31 42 13 30 31 18Z"/>
+    <!-- BOTTOM -->
+    <path id="L3" class="layer"   d="M31 26 49 38 31 50 13 38 31 26Z"/>
+
+    <!-- CUT (same thickness as before), but revealed dynamically bottom->up and bounded to the stack -->
+    <!-- Stack bounds: top layer top ~y=10, bottom layer bottom ~y=50 -->
+    <!-- We reveal from y=50 up to y=8 (just a bit above top) -->
+    <g mask="url(#revealCut)">
+      <!-- hard cut -->
+      <rect x="29" y="8" width="4" height="42" rx="2" fill="var(--cut)" opacity=".98"/>
+      <!-- edge glow -->
+      <rect x="28.6" y="8" width="4.8" height="42" rx="2.4" fill="url(#cutEdge)" opacity=".55"/>
+    </g>
+  </svg>
+</body>
+</html>
