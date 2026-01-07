@@ -1,0 +1,68 @@
+<svg viewBox="0 0 62 62" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Gapper.ai">
+  <defs>
+    <filter id="gapperGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="2.4" result="b" />
+      <feMerge>
+        <feMergeNode in="b" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <linearGradient id="gapperCutEdge" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="rgba(34,211,238,0)" />
+      <stop offset=".55" stop-color="rgba(34,211,238,.55)" />
+      <stop offset="1" stop-color="rgba(52,211,153,0)" />
+    </linearGradient>
+  </defs>
+  
+  <!-- TOP LAYER -->
+  <path 
+    class="g-layer g-a"
+    d="M31 10 49 22 31 34 13 22 31 10Z"
+    fill="rgba(34,211,238,.10)"
+    stroke="rgba(34,211,238,.85)"
+    stroke-width="2.2"
+    stroke-linejoin="round"
+    filter="url(#gapperGlow)"
+  />
+  
+  <!-- MID LAYER -->
+  <path 
+    class="g-layer g-b"
+    d="M31 18 49 30 31 42 13 30 31 18Z"
+    fill="rgba(52,211,153,.10)"
+    stroke="rgba(52,211,153,.85)"
+    stroke-width="2.2"
+    stroke-linejoin="round"
+    filter="url(#gapperGlow)"
+  />
+  
+  <!-- BOTTOM LAYER -->
+  <path 
+    class="g-layer"
+    d="M31 26 49 38 31 50 13 38 31 26Z"
+    fill="rgba(255,255,255,.03)"
+    stroke="rgba(148,163,184,.22)"
+    stroke-width="2.2"
+    stroke-linejoin="round"
+  />
+  
+  <!-- STATIC CUT (no animation for favicon) -->
+  <rect 
+    x="29" 
+    y="8" 
+    width="4" 
+    height="42" 
+    rx="2" 
+    fill="#030712" 
+    opacity=".98"
+  />
+  <rect 
+    x="28.6" 
+    y="8" 
+    width="4.8" 
+    height="42" 
+    rx="2.4" 
+    fill="url(#gapperCutEdge)" 
+    opacity=".55"
+  />
+</svg>
