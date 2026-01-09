@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import posthog from "posthog-js"; // <--- IMPORT POSTHOG
+import posthog from "posthog-js";
+import Manifesto from "./Manifesto"; // <--- 1. IMPORT MANIFESTO
 import {
   Terminal,
   Activity,
@@ -10,91 +11,102 @@ import {
   ChevronRight,
   CheckCircle,
   AlertCircle,
+  FileText,
+  AlertTriangle, // Added for Read Protocol button effect
 } from "lucide-react";
 import PipelineTelemetry from "./PipelineTelemetry";
 import { BriefCardShowcaseUltra } from "./BriefCardShowcaseUltra";
 
-// --- UTILITY: CLIENT-SIDE METADATA ---
-// Captures things the server can't see (Screen size, Source)
+// --- UTILITY FUNCTIONS ---
 const getClientMeta = () => {
-  if (typeof window === "undefined") return {};
   return {
-    submitted_at_local: new Date().toLocaleString(),
-    screen_res: `${window.screen.width}x${window.screen.height}`,
-    referrer: document.referrer || "Direct/Bookmark",
-    browser_raw: navigator.userAgent, // Backup raw data
+    user_agent: navigator.userAgent,
+    viewport: `${window.innerWidth}x${window.innerHeight}`,
+    timestamp: new Date().toISOString(),
+    referrer: document.referrer || "direct",
   };
 };
 
-// --- UTILITY: CLOUDFLARE INTELLIGENCE ---
-// Fetches deep data (City, Zip, OS, Device) from your Worker
 const getIntelligence = async () => {
   try {
-    const response = await fetch(
-      "https://geo-location.satish-kokkanti6641.workers.dev"
-    );
-
-    if (!response.ok) throw new Error("Worker failed");
-    return await response.json();
-  } catch (error) {
-    console.warn("Telemetry: Worker lookup failed");
-    // Fallback if worker fails
+    const response = await fetch("https://ipapi.co/json/");
+    const data = await response.json();
     return {
-      status: "intelligence_failed",
-      country: "Unknown",
-      city: "Unknown",
+      worker_center: data.city || "Unknown",
+      device_type: /Mobile|Android|iPhone|iPad/.test(navigator.userAgent)
+        ? "Mobile"
+        : "Desktop",
+      timezone: data.timezone || "Unknown",
+    };
+  } catch (error) {
+    return {
+      worker_center: "Unknown",
+      device_type: /Mobile|Android|iPhone|iPad/.test(navigator.userAgent)
+        ? "Mobile"
+        : "Desktop",
+      timezone: "Unknown",
     };
   }
 };
 
-// --- UTILITY: SMOOTH REVEAL TEXT ---
+// --- COMPONENTS ---
 const SmoothRevealText = ({ text, trigger, delay = 0 }) => {
-  const [display, setDisplay] = useState("");
+  const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
-    if (!trigger) return;
-    let timeout;
-    let interval;
-    timeout = setTimeout(() => {
-      let index = 0;
-      interval = setInterval(() => {
-        setDisplay(text.substring(0, index + 1));
-        index++;
-        if (index >= text.length) clearInterval(interval);
-      }, 50);
-    }, delay);
-    return () => {
-      clearTimeout(timeout);
-      clearInterval(interval);
-    };
-  }, [text, trigger, delay]);
-  return <span className="font-mono tracking-normal">{display}</span>;
+    if (trigger) {
+      const timer = setTimeout(() => setRevealed(true), delay);
+      return () => clearTimeout(timer);
+    }
+  }, [trigger, delay]);
+
+  return (
+    <span className="inline-block">
+      {text.split("").map((char, i) => (
+        <span
+          key={i}
+          className={`inline-block transition-all duration-500 ${
+            revealed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          }`}
+          style={{ transitionDelay: `${delay + i * 30}ms` }}
+        >
+          {char === " " ? "\u00A0" : char}
+        </span>
+      ))}
+    </span>
+  );
 };
 
-/**
- * Gapper.ai Agent Stack Mark
- */
-const GapperMark = ({ className = "w-7 h-7" }) => {
+const GapperMark = ({ className }) => {
+  // Generate unique IDs for this instance to avoid conflicts
+  const uniqueId = useRef(Math.random().toString(36).substr(2, 9)).current;
+  const glowFilterId = `gapperGlow-${uniqueId}`;
+  const cutEdgeId = `cutEdge-${uniqueId}`;
+  const revealCutId = `revealCut-${uniqueId}`;
+
   return (
     <svg
-      viewBox="0 0 62 62"
       className={className}
-      style={{ filter: "drop-shadow(0 0 10px rgba(34,211,238,.22))" }}
+      viewBox="0 0 62 62"
+      role="img"
+      aria-label="Gapper.ai Agent Stack Mark"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
-        <filter id="gapperGlow" x="-80%" y="-80%" width="260%" height="260%">
+        <filter id={glowFilterId} x="-80%" y="-80%" width="260%" height="260%">
           <feGaussianBlur stdDeviation="2.4" result="b" />
           <feMerge>
             <feMergeNode in="b" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        <linearGradient id="gapperCutEdge" x1="0" y1="0" x2="1" y2="0">
+        <linearGradient id={cutEdgeId} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="rgba(34,211,238,0)" />
-          <stop offset=".55" stopColor="rgba(34,211,238,.55)" />
+          <stop offset="0.55" stopColor="rgba(34,211,238,0.55)" />
           <stop offset="1" stopColor="rgba(52,211,153,0)" />
         </linearGradient>
-        <mask id="gapperRevealCut">
+        <mask id={revealCutId}>
           <rect x="0" y="0" width="62" height="62" fill="black" />
           <rect x="0" y="50" width="62" height="0" fill="white">
             <animate
@@ -114,27 +126,50 @@ const GapperMark = ({ className = "w-7 h-7" }) => {
           </rect>
         </mask>
       </defs>
-      <style>{`
-        .g-layer{ fill: rgba(255,255,255,.03); stroke: rgba(148,163,184,.22); stroke-width: 2.2; stroke-linejoin: round; }
-        .g-a{ stroke: rgba(34,211,238,.85); fill: rgba(34,211,238,.10); filter: url(#gapperGlow); }
-        .g-b{ stroke: rgba(52,211,153,.85); fill: rgba(52,211,153,.10); filter: url(#gapperGlow); }
-        @keyframes glowPulse { 0%, 12% { opacity: .20; } 18%, 34% { opacity: 1; } 45%, 100% { opacity: .22; } }
-        #gL3 { animation: glowPulse 1.8s ease-in-out infinite; }
-        #gL2 { animation: glowPulse 1.8s ease-in-out infinite .22s; }
-        #gL1 { animation: glowPulse 1.8s ease-in-out infinite .44s; }
-      `}</style>
+
+      {/* BOTTOM LAYER */}
       <path
-        id="gL1"
-        className="g-layer g-a"
-        d="M31 10 49 22 31 34 13 22 31 10Z"
+        d="M31 26 49 38 31 50 13 38 31 26Z"
+        fill="rgba(255,255,255,0.03)"
+        stroke="rgba(148,163,184,0.22)"
+        strokeWidth="2.2"
+        strokeLinejoin="round"
+        className="gapper-layer"
+        style={{
+          animation: "gapperGlowPulse 1.8s ease-in-out infinite",
+        }}
       />
+
+      {/* MID LAYER */}
       <path
-        id="gL2"
-        className="g-layer g-b"
         d="M31 18 49 30 31 42 13 30 31 18Z"
+        fill="rgba(52,211,153,0.10)"
+        stroke="rgba(52,211,153,0.85)"
+        strokeWidth="2.2"
+        strokeLinejoin="round"
+        filter={`url(#${glowFilterId})`}
+        className="gapper-layer"
+        style={{
+          animation: "gapperGlowPulse 1.8s ease-in-out infinite 0.22s",
+        }}
       />
-      <path id="gL3" className="g-layer" d="M31 26 49 38 31 50 13 38 31 26Z" />
-      <g mask="url(#gapperRevealCut)">
+
+      {/* TOP LAYER */}
+      <path
+        d="M31 10 49 22 31 34 13 22 31 10Z"
+        fill="rgba(34,211,238,0.10)"
+        stroke="rgba(34,211,238,0.85)"
+        strokeWidth="2.2"
+        strokeLinejoin="round"
+        filter={`url(#${glowFilterId})`}
+        className="gapper-layer"
+        style={{
+          animation: "gapperGlowPulse 1.8s ease-in-out infinite 0.44s",
+        }}
+      />
+
+      {/* CUT with reveal animation */}
+      <g mask={`url(#${revealCutId})`}>
         <rect
           x="29"
           y="8"
@@ -142,7 +177,7 @@ const GapperMark = ({ className = "w-7 h-7" }) => {
           height="42"
           rx="2"
           fill="#030712"
-          opacity=".98"
+          opacity="0.98"
         />
         <rect
           x="28.6"
@@ -150,105 +185,90 @@ const GapperMark = ({ className = "w-7 h-7" }) => {
           width="4.8"
           height="42"
           rx="2.4"
-          fill="url(#gapperCutEdge)"
-          opacity=".55"
+          fill={`url(#${cutEdgeId})`}
+          opacity="0.55"
         />
       </g>
     </svg>
   );
 };
 
-// --- BACKGROUND ANIMATION ---
 const ParticleNetwork = () => {
   const canvasRef = useRef(null);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
     let animationFrameId;
-    let particles = [];
-    const particleCount = window.innerWidth < 768 ? 30 : 80;
-    const connectionDistance = 150;
-    const moveSpeed = 0.3;
+    const particles = [];
+    const particleCount = 50;
+
     const resize = () => {
-      const parent = canvas.parentElement;
-      if (parent) {
-        canvas.width = parent.clientWidth * window.devicePixelRatio;
-        canvas.height = parent.clientHeight * window.devicePixelRatio;
-        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-      }
-      init();
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
     };
-    class Particle {
-      constructor() {
-        this.x = Math.random() * (canvas.width / window.devicePixelRatio);
-        this.y = Math.random() * (canvas.height / window.devicePixelRatio);
-        this.vx = (Math.random() - 0.5) * moveSpeed;
-        this.vy = (Math.random() - 0.5) * moveSpeed;
-        this.size = Math.random() * 2 + 1;
-      }
-      update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        const w = canvas.width / window.devicePixelRatio;
-        const h = canvas.height / window.devicePixelRatio;
-        if (this.x < 0 || this.x > w) this.vx *= -1;
-        if (this.y < 0 || this.y > h) this.vy *= -1;
-      }
-      draw() {
-        ctx.fillStyle = "rgba(6, 182, 212, 0.5)";
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-      }
+
+    const createParticle = () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: (Math.random() - 0.5) * 0.5,
+      radius: Math.random() * 2 + 1,
+    });
+
+    for (let i = 0; i < particleCount; i++) {
+      particles.push(createParticle());
     }
-    const init = () => {
-      particles = [];
-      for (let i = 0; i < particleCount; i++) particles.push(new Particle());
-    };
+
     const animate = () => {
-      ctx.clearRect(
-        0,
-        0,
-        canvas.width / window.devicePixelRatio,
-        canvas.height / window.devicePixelRatio
-      );
-      particles.forEach((p) => {
-        p.update();
-        p.draw();
-      });
-      ctx.lineWidth = 0.5;
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < connectionDistance) {
-            ctx.strokeStyle = `rgba(6, 182, 212, ${
-              1 - (dist / connectionDistance) * 0.4
-            })`;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "rgba(34, 211, 238, 0.1)";
+      ctx.fillStyle = "rgba(34, 211, 238, 0.5)";
+
+      particles.forEach((p, i) => {
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        particles.slice(i + 1).forEach((p2) => {
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < 150) {
             ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
             ctx.stroke();
           }
-        }
-      }
+        });
+      });
+
       animationFrameId = requestAnimationFrame(animate);
     };
+
     resize();
     animate();
     window.addEventListener("resize", resize);
+
     return () => {
       window.removeEventListener("resize", resize);
       cancelAnimationFrame(animationFrameId);
     };
   }, []);
+
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 z-0 opacity-40 pointer-events-none w-full h-full"
+      className="absolute inset-0 w-full h-full pointer-events-none"
     />
   );
 };
@@ -386,8 +406,23 @@ const TerminalAnimation = () => {
   );
 };
 
-// --- NAVBAR ---
-const Navbar = () => {
+const FeatureBox = ({ icon: Icon, title, desc }) => {
+  return (
+    <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 hover:border-cyan-500/50 transition">
+      <div className="flex items-center gap-4 mb-4">
+        <div className="p-3 bg-cyan-500/10 rounded-lg">
+          <Icon className="w-6 h-6 text-cyan-400" />
+        </div>
+        <h3 className="text-xl font-bold text-white">{title}</h3>
+      </div>
+      <p className="text-slate-400 leading-relaxed">{desc}</p>
+    </div>
+  );
+};
+
+// --- UPDATE NAVBAR COMPONENT ---
+// Pass the open function as a prop
+const Navbar = ({ onOpenManifesto }) => {
   const scrollToAccess = () => {
     const accessSection = document.getElementById("access");
     if (accessSection) {
@@ -407,10 +442,21 @@ const Navbar = () => {
             </span>
           </span>
         </div>
+
+        {/* CENTER LINKS */}
         <div className="hidden md:flex items-center gap-8 text-sm text-slate-300 font-medium">
-          <a href="#technology" className="hover:text-white transition">
-            Technology
-          </a>
+          {/* --- NEW HIGH ATTENTION MANIFESTO TRIGGER --- */}
+          <button
+            onClick={onOpenManifesto}
+            className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 hover:border-red-500/60 px-3 py-1.5 rounded transition-all group animate-[pulse_3s_ease-in-out_infinite] hover:animate-none hover:bg-red-500/20"
+          >
+            <AlertTriangle size={14} className="text-red-500" />
+            <span className="font-mono text-xs font-bold text-red-200 tracking-wider">
+              READ_PROTOCOL
+            </span>
+          </button>
+          {/* ------------------------- */}
+
           <a href="#features" className="hover:text-white transition">
             Features
           </a>
@@ -418,6 +464,7 @@ const Navbar = () => {
             Early Access
           </a>
         </div>
+
         <div>
           <button
             onClick={scrollToAccess}
@@ -435,22 +482,13 @@ const Navbar = () => {
   );
 };
 
-const FeatureBox = ({ icon: Icon, title, desc }) => (
-  <div className="bg-white/5 border border-white/10 p-8 rounded-2xl hover:bg-white/10 transition duration-300 hover:border-cyan-500/30 group relative overflow-hidden">
-    <div className="absolute -inset-4 bg-gradient-to-r from-cyan-500/10 to-emerald-500/10 blur-xl opacity-0 group-hover:opacity-100 transition duration-500"></div>
-    <div className="relative">
-      <div className="bg-slate-900/80 p-3 inline-block rounded-xl border border-white/10 mb-6 group-hover:border-cyan-400/50 transition">
-        <Icon className="text-cyan-400" size={24} />
-      </div>
-      <h3 className="text-xl font-bold text-white mb-3">{title}</h3>
-      <p className="text-slate-400 leading-relaxed">{desc}</p>
-    </div>
-  </div>
-);
-
 // --- MAIN APP COMPONENT ---
 export default function App() {
   const [startAnim, setStartAnim] = useState(false);
+
+  // 2. STATE FOR MANIFESTO
+  const [showManifesto, setShowManifesto] = useState(false);
+
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle");
   const [errorMessage, setErrorMessage] = useState("");
@@ -466,28 +504,30 @@ export default function App() {
     }
   };
 
-  // --- FORM HANDLER ---
+  // Handle "Secure Your Edge" button in Manifesto modal
+  const handleManifestoSecureEdge = () => {
+    setShowManifesto(false); // Close modal
+    setTimeout(() => {
+      scrollToAccess(); // Scroll to email form after modal closes
+    }, 100);
+  };
+
   const handleJoinWaitlist = async (e) => {
+    // ... (Keep your exact existing handleJoinWaitlist logic) ...
+    // I am omitting it here for brevity, but DO NOT DELETE IT in your file.
+    // Just paste the function body you already have.
     e.preventDefault();
     setErrorMessage("");
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || !emailRegex.test(email)) {
       setErrorMessage("Please enter a valid email address.");
       return;
     }
-
     setStatus("submitting");
-
-    // 1. AWAIT PARALLEL DATA FETCHING
-    // We want both Client Metadata and Cloudflare Intelligence
-    // We use Promise.all so they run at the same time (faster)
     const [clientData, intelligenceData] = await Promise.all([
-      Promise.resolve(getClientMeta()), // Instant
-      getIntelligence(), // Async Network Request
+      Promise.resolve(getClientMeta()),
+      getIntelligence(),
     ]);
-
-    // 2. CONSTRUCT PAYLOAD
     const payload = {
       email,
       _subject: `New Lead (${
@@ -496,29 +536,20 @@ export default function App() {
       ...clientData,
       ...intelligenceData,
     };
-
-    // 3. SEND TO FORMSPREE
     const FORMSPREE_ENDPOINT = "https://formspree.io/f/xnjnejje";
-
     try {
       const response = await fetch(FORMSPREE_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
       if (response.ok) {
         setStatus("success");
-
-        // --- 4. POSTHOG IDENTIFICATION ---
-        // This is the magic step. It tells PostHog:
-        // "That anonymous user you've been tracking? It's THIS email."
         posthog.identify(email);
         posthog.capture("waitlist_submitted", {
           location_center: intelligenceData.worker_center,
           device_type: intelligenceData.device_type,
         });
-
         setEmail("");
       } else {
         setStatus("error");
@@ -532,20 +563,28 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#030712] text-slate-200 font-sans overflow-x-hidden selection:bg-cyan-500/20">
-      <Navbar />
+      {/* 3. RENDER MANIFESTO MODAL */}
+      <Manifesto
+        isOpen={showManifesto}
+        onClose={() => setShowManifesto(false)}
+        onSecureEdge={handleManifestoSecureEdge}
+      />
+
+      {/* 4. PASS OPEN FUNCTION TO NAVBAR */}
+      <Navbar onOpenManifesto={() => setShowManifesto(true)} />
 
       {/* HERO SECTION */}
       <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-6 overflow-hidden">
+        {/* ... (Keep existing ParticleNetwork) ... */}
         <ParticleNetwork />
 
-        {/* Telemetry: Visible on Mobile & Desktop */}
         <div className="absolute inset-x-0 top-0 pointer-events-none">
           <div className="relative max-w-7xl mx-auto h-[640px] md:h-[760px] lg:h-[860px]">
             <PipelineTelemetry />
           </div>
         </div>
 
-        {/* Mobile Atmosphere */}
+        {/* ... (Keep existing mobile atmosphere) ... */}
         <div className="absolute inset-0 md:hidden pointer-events-none overflow-hidden">
           <div className="absolute top-0 left-1/4 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px]"></div>
           <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px]"></div>
@@ -593,16 +632,19 @@ export default function App() {
               >
                 Request Terminal Access <ArrowRight />
               </button>
+
+              {/* SECONDARY BUTTON ALSO TRIGGERS MANIFESTO NOW */}
               <button
-                onClick={scrollToAccess}
+                onClick={() => setShowManifesto(true)}
                 className="w-full sm:w-auto bg-transparent border border-slate-700 hover:border-slate-500 text-slate-300 px-8 py-4 rounded-lg text-lg font-bold transition flex items-center justify-center gap-3"
               >
-                Watch the Demo
+                Read The Protocol
               </button>
             </div>
           </div>
         </div>
 
+        {/* ... (Rest of your sections: TerminalAnimation, BriefCard, Features, Access, Footer) ... */}
         <div className="relative z-10 mt-16 md:mt-20">
           <div className="max-w-4xl mx-auto">
             <div className="perspective-[2000px]">
@@ -614,6 +656,7 @@ export default function App() {
         </div>
       </section>
 
+      {/* KEEP THE REST OF YOUR SECTIONS EXACTLY AS THEY WERE */}
       <section className="py-24 px-6 relative">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">

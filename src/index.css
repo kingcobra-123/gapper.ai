@@ -63,4 +63,17 @@
   .rotate-x-\[2deg\] {
     transform: rotateX(2deg);
   }
+
+  /* GapperMark logo animations */
+  @keyframes gapperGlowPulse {
+    0%, 12% { opacity: 0.20; }
+    18%, 34% { opacity: 1; }
+    45%, 100% { opacity: 0.22; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gapper-layer {
+      animation: none !important;
+    }
+  }
 }
