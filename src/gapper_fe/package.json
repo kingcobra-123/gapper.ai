@@ -1,0 +1,48 @@
+{
+  "name": "gapper-ai-terminal",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node -e \"console.error('Standalone gapper_fe dev is retired. Run npm run dev from the repo root.'); process.exit(1)\"",
+    "dev:3001": "node -e \"console.error('Standalone gapper_fe dev is retired. Run npm run dev from the repo root.'); process.exit(1)\"",
+    "build": "node -e \"console.error('Standalone gapper_fe build is retired. Run npm run build from the repo root.'); process.exit(1)\"",
+    "start": "node -e \"console.error('Standalone gapper_fe start is retired. Run npm run dev from the repo root.'); process.exit(1)\"",
+    "lint": "node -e \"console.error('Standalone gapper_fe lint is retired. Run npm run lint from the repo root when available.'); process.exit(1)\"",
+    "format": "prettier --write .",
+    "test:workspace-guard": "node --test tests/workspace_guard.test.mjs",
+    "test:module12:adapter": "node --test --loader ./tests/tsx_test_loader.mjs tests/module12_frontend_adapter.test.ts",
+    "test:module12:channels": "node --test --loader ./tests/tsx_test_loader.mjs tests/module12_frontend_channels.test.ts",
+    "test:module12:display": "node --test --loader ./tests/tsx_test_loader.mjs tests/module12_frontend_display_treatment.test.ts",
+    "test:module12:api-error": "node --test --loader ./tests/tsx_test_loader.mjs tests/module12_frontend_api_error_message.test.ts",
+    "test:module12:dom": "node --test --loader ./tests/tsx_test_loader.mjs tests/module12_frontend_dom_render_smoke.test.ts",
+    "test:module12:backend-live": "node --test --loader ./tests/tsx_test_loader.mjs tests/module12_frontend_backend_live.test.ts",
+    "test:module12": "npm run test:workspace-guard && npm run test:module12:adapter && npm run test:module12:channels && npm run test:module12:display && npm run test:module12:api-error && npm run test:module12:dom"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^11.3.19",
+    "lucide-react": "^0.453.0",
+    "next": "14.2.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "tailwind-merge": "^2.5.3",
+    "zod": "^3.23.8",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "@types/react": "^18.3.9",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.2.5",
+    "eslint-config-prettier": "^9.1.0",
+    "postcss": "^8.4.47",
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.8",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.2"
+  }
+}

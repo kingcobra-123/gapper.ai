@@ -1,6 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import posthog from "posthog-js";
 import Manifesto from "./Manifesto"; // <--- 1. IMPORT MANIFESTO
+import AuthModal from "./auth/AuthModal";
+import { useAuth } from "./auth/AuthProvider";
+import BetaPendingModal from "./beta/BetaPendingModal";
+import TerminalWorkspacePage from "./terminal/TerminalWorkspacePage";
 import {
   Terminal,
   Activity,
@@ -48,6 +52,79 @@ const getIntelligence = async () => {
     };
   }
 };
+
+const AUTH_BUTTONS_DISABLED_TITLE =
+  "Supabase auth is unavailable. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.";
+const NAV_PRIMARY_BUTTON_CLASS =
+  "bg-white/10 hover:bg-white/20 border border-white/20 text-white px-6 py-2.5 rounded-lg text-sm font-bold transition flex items-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed";
+const NAV_SECONDARY_BUTTON_CLASS =
+  "bg-transparent border border-slate-700 hover:border-slate-500 text-slate-300 px-6 py-2.5 rounded-lg text-sm font-bold transition disabled:opacity-50 disabled:cursor-not-allowed";
+const AUTH_PLACEHOLDER_CLASS = "w-[240px] opacity-0 pointer-events-none";
+
+const TIER_LEVELS = {
+  free: 0,
+  basic: 1,
+  premium: 2,
+};
+
+function normalizeTier(tierValue) {
+  const normalized = (tierValue || "free").trim().toLowerCase();
+  if (normalized === "basic" || normalized === "premium") {
+    return normalized;
+  }
+
+  return "free";
+}
+
+function resolveTerminalMinTier() {
+  const envTier = import.meta.env.VITE_WEB_TERMINAL_MIN_TIER;
+  const normalized = normalizeTier(envTier);
+  return normalized;
+}
+
+const TERMINAL_MIN_TIER = resolveTerminalMinTier();
+
+function canAccessTerminal(profileTier) {
+  const minTierLevel = TIER_LEVELS[TERMINAL_MIN_TIER] ?? TIER_LEVELS.free;
+  const userTierLevel = TIER_LEVELS[normalizeTier(profileTier)] ?? TIER_LEVELS.free;
+  return userTierLevel >= minTierLevel;
+}
+
+const VIEW_LANDING = "landing";
+const VIEW_TERMINAL = "terminal";
+
+function pathForView(view) {
+  return view === VIEW_TERMINAL ? "/terminal" : "/";
+}
+
+function viewForPath(pathname) {
+  return pathname === "/terminal" ? VIEW_TERMINAL : VIEW_LANDING;
+}
+
+function getInitialView() {
+  if (typeof window === "undefined") {
+    return VIEW_LANDING;
+  }
+  return viewForPath(window.location.pathname);
+}
+
+function syncPathToView(view, { replace = false } = {}) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const nextPath = pathForView(view);
+  if (window.location.pathname === nextPath) {
+    return;
+  }
+
+  if (replace) {
+    window.history.replaceState(null, "", nextPath);
+    return;
+  }
+
+  window.history.pushState(null, "", nextPath);
+}
 
 // --- COMPONENTS ---
 const SmoothRevealText = ({ text, trigger, delay = 0 }) => {
@@ -421,15 +498,20 @@ const FeatureBox = ({ icon: Icon, title, desc }) => {
 };
 
 // --- UPDATE NAVBAR COMPONENT ---
-// Pass the open function as a prop
-const Navbar = ({ onOpenManifesto }) => {
-  const scrollToAccess = () => {
-    const accessSection = document.getElementById("access");
-    if (accessSection) {
-      accessSection.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
-
+// Pass actions as props
+const Navbar = ({
+  onOpenManifesto,
+  onOpenSignIn,
+  onOpenSignUp,
+  onSignOut,
+  onOpenWebTerminal,
+  onJoinWaitlist,
+  authLoading,
+  authActionBusy,
+  supabaseConfigured,
+  user,
+  authDisplayName,
+}) => {
   return (
     <nav className="fixed w-full z-50 bg-slate-950/60 backdrop-blur-md border-b border-white/5">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -465,17 +547,87 @@ const Navbar = ({ onOpenManifesto }) => {
           </a>
         </div>
 
-        <div>
-          <button
-            onClick={scrollToAccess}
-            className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-6 py-2.5 rounded-lg text-sm font-bold transition flex items-center gap-2 group"
-          >
-            Join Waitlist{" "}
-            <ChevronRight
-              size={16}
-              className="group-hover:translate-x-1 transition-transform"
-            />
-          </button>
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center justify-end min-w-[240px]">
+            {authLoading ? (
+              <div className={AUTH_PLACEHOLDER_CLASS}>
+                <button className={NAV_PRIMARY_BUTTON_CLASS}>Sign up</button>
+              </div>
+            ) : user ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onOpenWebTerminal}
+                  className={NAV_PRIMARY_BUTTON_CLASS}
+                  disabled={authActionBusy}
+                >
+                  Web Terminal
+                </button>
+                <button
+                  onClick={onSignOut}
+                  className={NAV_SECONDARY_BUTTON_CLASS}
+                  disabled={authActionBusy}
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onOpenSignIn}
+                  className={NAV_SECONDARY_BUTTON_CLASS}
+                  disabled={!supabaseConfigured}
+                  title={!supabaseConfigured ? AUTH_BUTTONS_DISABLED_TITLE : ""}
+                >
+                  Sign in
+                </button>
+                <button
+                  onClick={onOpenSignUp}
+                  className={NAV_PRIMARY_BUTTON_CLASS}
+                  disabled={!supabaseConfigured}
+                  title={!supabaseConfigured ? AUTH_BUTTONS_DISABLED_TITLE : ""}
+                >
+                  Sign up
+                </button>
+              </div>
+            )}
+          </div>
+
+          {authLoading ? (
+            <div className="w-[154px] opacity-0 pointer-events-none">
+              <button className={NAV_PRIMARY_BUTTON_CLASS}>Join Waitlist</button>
+            </div>
+          ) : !user ? (
+            <button onClick={onJoinWaitlist} className={NAV_PRIMARY_BUTTON_CLASS}>
+              Join Waitlist{" "}
+              <ChevronRight
+                size={16}
+                className="group-hover:translate-x-1 transition-transform"
+              />
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onOpenWebTerminal}
+                className="md:hidden bg-white/10 hover:bg-white/20 border border-white/20 text-white px-3 py-2 rounded-lg text-xs font-semibold transition"
+                disabled={authActionBusy}
+              >
+                Terminal
+              </button>
+              <button
+                onClick={onSignOut}
+                className="md:hidden bg-transparent border border-slate-700 hover:border-slate-500 text-slate-300 px-3 py-2 rounded-lg text-xs font-semibold transition"
+                disabled={authActionBusy}
+              >
+                Sign out
+              </button>
+              <span
+                className="hidden md:inline-flex max-w-[220px] truncate text-xs text-slate-300 border border-white/10 rounded-lg px-3 py-2.5"
+                title={authDisplayName}
+              >
+                Logged in as {authDisplayName}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </nav>
@@ -484,18 +636,69 @@ const Navbar = ({ onOpenManifesto }) => {
 
 // --- MAIN APP COMPONENT ---
 export default function App() {
+  const {
+    loading,
+    profileLoading,
+    profile,
+    profileStatus,
+    profileError,
+    refreshProfile,
+    user,
+    supabaseConfigured,
+    signOut,
+  } = useAuth();
   const [startAnim, setStartAnim] = useState(false);
 
   // 2. STATE FOR MANIFESTO
   const [showManifesto, setShowManifesto] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState("signin");
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authActionBusy, setAuthActionBusy] = useState(false);
+  const [betaPendingOpen, setBetaPendingOpen] = useState(false);
+  const [betaCheckBusy, setBetaCheckBusy] = useState(false);
+  const [activeView, setActiveView] = useState(getInitialView);
 
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
+  const authUiLoading = loading || profileLoading;
+  const authDisplayName =
+    user?.user_metadata?.username?.trim() ||
+    profile?.email ||
+    user?.email ||
+    "Authenticated User";
+  const terminalAllowed = canAccessTerminal(profile?.tier);
+  const setActiveViewWithPath = useCallback((nextView, { replace = false } = {}) => {
+    syncPathToView(nextView, { replace });
+    setActiveView(nextView);
+  }, []);
+
   useEffect(() => {
     setStartAnim(true);
   }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveView(viewForPath(window.location.pathname));
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setBetaPendingOpen(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (activeView === VIEW_TERMINAL && user && !terminalAllowed) {
+      setActiveViewWithPath(VIEW_LANDING, { replace: true });
+      setBetaPendingOpen(true);
+    }
+  }, [activeView, setActiveViewWithPath, terminalAllowed, user]);
 
   const scrollToAccess = () => {
     const accessSection = document.getElementById("access");
@@ -510,6 +713,49 @@ export default function App() {
     setTimeout(() => {
       scrollToAccess(); // Scroll to email form after modal closes
     }, 100);
+  };
+
+  const openAuthModal = (mode) => {
+    setAuthModalMode(mode);
+    setAuthModalOpen(true);
+  };
+
+  const handleSignOut = async () => {
+    setAuthActionBusy(true);
+    const { error } = await signOut();
+
+    if (error) {
+      console.error("[auth] signOut error", error);
+    }
+
+    setAuthActionBusy(false);
+  };
+
+  const handleOpenWebTerminal = () => {
+    if (!user) {
+      openAuthModal("signin");
+      return;
+    }
+
+    if (!terminalAllowed) {
+      setBetaPendingOpen(true);
+      return;
+    }
+
+    setActiveViewWithPath(VIEW_TERMINAL);
+  };
+
+  const handleCheckBetaAgain = async () => {
+    setBetaCheckBusy(true);
+
+    try {
+      await refreshProfile({
+        reason: "terminal-tier-check",
+        showLoading: true,
+      });
+    } finally {
+      setBetaCheckBusy(false);
+    }
   };
 
   const handleJoinWaitlist = async (e) => {
@@ -561,6 +807,30 @@ export default function App() {
     }
   };
 
+  if (activeView === VIEW_TERMINAL) {
+    return (
+      <>
+        <AuthModal
+          mode={authModalMode}
+          isOpen={authModalOpen}
+          onClose={() => setAuthModalOpen(false)}
+          onSwitchMode={setAuthModalMode}
+        />
+        <BetaPendingModal
+          isOpen={betaPendingOpen}
+          onClose={() => setBetaPendingOpen(false)}
+          email={user?.email ?? profile?.email ?? ""}
+          onCheckAgain={handleCheckBetaAgain}
+          checking={betaCheckBusy || profileLoading}
+          profileStatus={profileStatus}
+          profileError={profileError}
+          variant="subscribed"
+        />
+        <TerminalWorkspacePage />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#030712] text-slate-200 font-sans overflow-x-hidden selection:bg-cyan-500/20">
       {/* 3. RENDER MANIFESTO MODAL */}
@@ -569,9 +839,37 @@ export default function App() {
         onClose={() => setShowManifesto(false)}
         onSecureEdge={handleManifestoSecureEdge}
       />
+      <AuthModal
+        mode={authModalMode}
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onSwitchMode={setAuthModalMode}
+      />
+      <BetaPendingModal
+        isOpen={betaPendingOpen}
+        onClose={() => setBetaPendingOpen(false)}
+        email={user?.email ?? profile?.email ?? ""}
+        onCheckAgain={handleCheckBetaAgain}
+        checking={betaCheckBusy || profileLoading}
+        profileStatus={profileStatus}
+        profileError={profileError}
+        variant="subscribed"
+      />
 
       {/* 4. PASS OPEN FUNCTION TO NAVBAR */}
-      <Navbar onOpenManifesto={() => setShowManifesto(true)} />
+      <Navbar
+        onOpenManifesto={() => setShowManifesto(true)}
+        onOpenSignIn={() => openAuthModal("signin")}
+        onOpenSignUp={() => openAuthModal("signup")}
+        onSignOut={handleSignOut}
+        onOpenWebTerminal={handleOpenWebTerminal}
+        onJoinWaitlist={scrollToAccess}
+        authLoading={authUiLoading}
+        authActionBusy={authActionBusy}
+        supabaseConfigured={supabaseConfigured}
+        user={user}
+        authDisplayName={authDisplayName}
+      />
 
       {/* HERO SECTION */}
       <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-6 overflow-hidden">

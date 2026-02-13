@@ -135,17 +135,44 @@ npm run build
 npm run preview
 ```
 
+### Auth + Web Terminal Workflow
+
+- Landing page stays as the main homepage experience.
+- Navbar shows `Sign in` / `Sign up` for logged-out users.
+- Navbar shows `Web Terminal` + `Sign out` for logged-in users.
+- `Web Terminal` is hosted directly inside the main Vite app by rendering `gapper_fe` terminal UI components.
+- Direct navigation to `/terminal` is supported for the embedded terminal workspace.
+- Tier model is `free | basic | premium` (default user tier is `free`).
+- Terminal gating is controlled by `VITE_WEB_TERMINAL_MIN_TIER` with values `free | basic | premium`.
+- Default gate value is `free` (all users can open terminal until you raise the threshold).
+- If a logged-in user is below the configured tier threshold, they see the beta subscription pending modal.
+
+### Terminal Tier Toggle
+
+```env
+# free | basic | premium
+# default: free
+VITE_WEB_TERMINAL_MIN_TIER=free
+```
+
+### Terminal API Environment (optional)
+
+These map the embedded terminal's API client config in Vite:
+
+```env
+VITE_GAPPER_API_BASE_URL=http://localhost:8000
+VITE_GAPPER_API_KEY=
+VITE_GAPPER_API_TIMEOUT_MS=8000
+```
+
 ## 🎨 Key Components
 
 ### App.jsx
 The main application component featuring:
-- **Navbar**: Fixed navigation with Gapper.ai branding and smooth scroll links
-- **Hero Section**: Animated headline with particle network background
-- **Terminal Animation**: Real-time processing simulation with ticker rotation
-- **Pipeline Telemetry**: Canvas-based data flow visualization
-- **Brief Card Showcase**: 3D flip card demonstration
-- **Features Grid**: Multi-agent synthesis, dilution shield, latency highlights
-- **Early Access Section**: Email capture for waitlist
+- **Landing Preserved**: Existing landing-page sections remain intact
+- **Auth Navbar Controls**: Sign in/up for guests, Web Terminal + Sign out for authenticated users
+- **Tier Gate**: Uses `public.profiles.tier` against `VITE_WEB_TERMINAL_MIN_TIER`
+- **Path-Aware Terminal View**: Uses embedded `gapper_fe` shell components directly at `/terminal` (no separate terminal server)
 
 ### PipelineTelemetry.jsx
 Advanced canvas component that visualizes the data processing pipeline:
