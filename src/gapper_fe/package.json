@@ -15,8 +15,10 @@
     "test:module12:display": "node --test --loader ./tests/tsx_test_loader.mjs tests/module12_frontend_display_treatment.test.ts",
     "test:module12:api-error": "node --test --loader ./tests/tsx_test_loader.mjs tests/module12_frontend_api_error_message.test.ts",
     "test:module12:dom": "node --test --loader ./tests/tsx_test_loader.mjs tests/module12_frontend_dom_render_smoke.test.ts",
+    "test:module12:terminal-gate": "node --test --loader ./tests/tsx_test_loader.mjs tests/module12_frontend_terminal_gate.test.tsx",
     "test:module12:backend-live": "node --test --loader ./tests/tsx_test_loader.mjs tests/module12_frontend_backend_live.test.ts",
-    "test:module12": "npm run test:workspace-guard && npm run test:module12:adapter && npm run test:module12:channels && npm run test:module12:display && npm run test:module12:api-error && npm run test:module12:dom"
+    "test:module12:fanout-live": "node --test --loader ./tests/tsx_test_loader.mjs tests/module12_frontend_channel_fanout_live.test.ts",
+    "test:module12": "npm run test:workspace-guard && npm run test:module12:adapter && npm run test:module12:channels && npm run test:module12:display && npm run test:module12:api-error && npm run test:module12:dom && npm run test:module12:terminal-gate"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.2",

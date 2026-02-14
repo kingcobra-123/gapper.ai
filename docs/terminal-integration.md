@@ -3,24 +3,40 @@
 ## Location
 - Embedded terminal source lives in `src/gapper_fe/src/`.
 - Landing-to-terminal mount wrapper is `src/terminal/TerminalWorkspacePage.jsx`.
-- View switching for `/` and `/terminal` is handled in `src/App.jsx`.
+- View routing for `/` and `/terminal` is handled in `src/App.jsx`.
 
-## Development
-- Run the combined app from repo root:
-  - `npm run dev`
-  - `npm run build`
-- `src/gapper_fe/package.json` standalone `dev/build/start/lint` scripts are intentionally disabled.
+## Runtime architecture
+- The integrated app is Vite-based (`npm run dev` / `npm run build` from repo root).
+- A nested Next.js tree exists under `src/gapper_fe/app/*`, but the production-integrated runtime uses the Vite root.
 
-## Runtime Env Vars
-Set these in `.env` (see `.env.example`):
-- `VITE_GAPPER_API_BASE_URL` (backend base URL)
-- `VITE_GAPPER_API_KEY` (optional API key)
-- `VITE_GAPPER_API_TIMEOUT_MS` (HTTP timeout in ms)
-- `VITE_WEB_TERMINAL_MIN_TIER` (`free|basic|premium`)
+## Auth and premium gate flow
+- Supabase browser client signs users in.
+- Terminal API calls include `Authorization: Bearer <supabase_access_token>`.
+- Frontend resolves plan by calling backend `GET /me`.
+- `/terminal` renders:
+  - loading state while plan is being resolved,
+  - sign-in prompt when unauthenticated,
+  - paywall when gate is enabled and plan is `free`,
+  - terminal only when allowed.
 
-Compatibility fallback vars still supported by terminal API adapters:
-- `NEXT_PUBLIC_API_BASE_URL`
-- `NEXT_PUBLIC_API_KEY`
-- `NEXT_PUBLIC_API_TIMEOUT_MS`
+## SSE auth strategy
+- User-message SSE uses `fetch()` streaming (`consumeUserMessagesStream`) instead of native `EventSource`.
+- This allows sending bearer auth headers on connect and reconnect.
+- On reconnect, the latest Supabase token is retrieved before each request.
 
-SSE/HTTP continue to connect directly to backend endpoints (no frontend proxy required for terminal APIs).
+## Runtime env vars
+Set these in repo-root `.env` (see `.env.example`):
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_GAPPER_API_BASE_URL`
+- `VITE_GAPPER_API_TIMEOUT_MS`
+- `VITE_PREMIUM_GATE_ENABLED`
+- `NEXT_PUBLIC_PREMIUM_GATE_ENABLED`
+
+Optional compatibility vars:
+- `VITE_GAPPER_API_KEY` (legacy API-key fallback path)
+- `VITE_AUTH_VERIFY_ENDPOINT`
+- `VITE_AUTH_API_PROXY_TARGET`
+
+## Security note
+- Never put `SUPABASE_SERVICE_ROLE_KEY` in frontend env files or `NEXT_PUBLIC_*` vars.

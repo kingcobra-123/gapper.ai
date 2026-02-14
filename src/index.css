@@ -6,6 +6,31 @@
   body {
     @apply bg-[#030712] text-slate-200;
   }
+
+  .gapper-terminal-theme {
+    --background: 0 0% 2%;
+    --foreground: 210 18% 92%;
+    --panel: 220 18% 9%;
+    --panel-strong: 220 22% 12%;
+    --panel-soft: 220 16% 8%;
+    --border: 220 12% 24%;
+    --muted: 220 10% 62%;
+    --muted-strong: 220 12% 74%;
+    --bullish: 187 100% 58%;
+    --bearish: 22 100% 54%;
+    --ai: 265 100% 68%;
+    --ring: 220 80% 72%;
+    color: hsl(var(--foreground));
+    background:
+      radial-gradient(circle at 15% 15%, rgba(91, 108, 255, 0.09), transparent 40%),
+      radial-gradient(circle at 85% 12%, rgba(0, 212, 255, 0.09), transparent 42%),
+      radial-gradient(circle at 50% 100%, rgba(122, 66, 255, 0.08), transparent 44%),
+      hsl(var(--background));
+  }
+
+  .gapper-terminal-theme * {
+    border-color: hsl(var(--border));
+  }
 }
 
 @layer utilities {
@@ -75,5 +100,145 @@
     .gapper-layer {
       animation: none !important;
     }
+  }
+}
+
+@layer components {
+  .gapper-terminal-theme .terminal-shell {
+    @apply rounded-2xl border border-border/70 bg-[linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] shadow-[0_24px_80px_rgba(0,0,0,0.5)];
+  }
+
+  .gapper-terminal-theme .glass-panel {
+    @apply rounded-xl border border-border/80 bg-[linear-gradient(170deg,rgba(255,255,255,0.06),rgba(255,255,255,0.015))] backdrop-blur-md;
+  }
+
+  .gapper-terminal-theme .section-title {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-muted;
+  }
+
+  .gapper-terminal-theme .ticker-chip {
+    @apply inline-flex items-center rounded-md border border-border/80 bg-panel-strong px-2 py-0.5 text-[11px] font-semibold tracking-wide;
+  }
+
+  .gapper-terminal-theme .terminal-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  }
+
+  .gapper-terminal-theme .gapper-logo {
+    overflow: visible;
+    filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.24));
+  }
+
+  .gapper-terminal-theme .gapper-logo-layer {
+    fill: rgba(255, 255, 255, 0.03);
+    stroke: rgba(148, 163, 184, 0.22);
+    stroke-width: 2.2;
+    stroke-linejoin: round;
+  }
+
+  .gapper-terminal-theme .gapper-logo-layer-a {
+    stroke: rgba(34, 211, 238, 0.85);
+    fill: rgba(34, 211, 238, 0.1);
+  }
+
+  .gapper-terminal-theme .gapper-logo-layer-b {
+    stroke: rgba(52, 211, 153, 0.85);
+    fill: rgba(52, 211, 153, 0.1);
+  }
+
+  .gapper-terminal-theme .gapper-logo-pulse-1 {
+    animation: gapper-logo-pulse 1.8s ease-in-out infinite;
+  }
+
+  .gapper-terminal-theme .gapper-logo-pulse-2 {
+    animation: gapper-logo-pulse 1.8s ease-in-out infinite 0.22s;
+  }
+
+  .gapper-terminal-theme .gapper-logo-pulse-3 {
+    animation: gapper-logo-pulse 1.8s ease-in-out infinite 0.44s;
+  }
+
+  .gapper-terminal-theme .missing-state-bob {
+    animation: missing-state-bob 1.4s ease-in-out infinite;
+    transform-origin: center;
+  }
+
+  .gapper-terminal-theme .missing-state-dot {
+    animation: missing-state-dot 1.2s ease-in-out infinite;
+  }
+
+  .gapper-terminal-theme .data-pending-shimmer {
+    position: relative;
+    overflow: hidden;
+    background: rgba(148, 163, 184, 0.22);
+  }
+
+  .gapper-terminal-theme .data-pending-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      110deg,
+      rgba(255, 255, 255, 0) 20%,
+      rgba(255, 255, 255, 0.42) 48%,
+      rgba(255, 255, 255, 0) 78%
+    );
+    transform: translateX(-120%);
+    animation: pending-shimmer 1.15s ease-in-out infinite;
+  }
+}
+
+@keyframes gapper-logo-pulse {
+  0%,
+  12% {
+    opacity: 0.2;
+  }
+  18%,
+  34% {
+    opacity: 1;
+  }
+  45%,
+  100% {
+    opacity: 0.22;
+  }
+}
+
+@keyframes missing-state-bob {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes missing-state-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes pending-shimmer {
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gapper-terminal-theme .gapper-logo-pulse-1,
+  .gapper-terminal-theme .gapper-logo-pulse-2,
+  .gapper-terminal-theme .gapper-logo-pulse-3,
+  .gapper-terminal-theme .missing-state-bob,
+  .gapper-terminal-theme .missing-state-dot,
+  .gapper-terminal-theme .data-pending-shimmer::after {
+    animation: none !important;
   }
 }

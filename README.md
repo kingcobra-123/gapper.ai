@@ -165,6 +165,14 @@ VITE_GAPPER_API_KEY=
 VITE_GAPPER_API_TIMEOUT_MS=8000
 ```
 
+### Single Env Setup
+
+- Use one frontend env file at repo root: `.env`.
+- Do not use `src/gapper_fe/.env.local` in the integrated app.
+- For auth verification:
+  - set `VITE_AUTH_VERIFY_ENDPOINT=/api/auth/verify` and run `npm run auth:server`, or
+  - set `VITE_AUTH_VERIFY_ENDPOINT=off` to disable auth verify proxy calls in local dev.
+
 ## 🎨 Key Components
 
 ### App.jsx

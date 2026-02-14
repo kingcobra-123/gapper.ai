@@ -3,7 +3,8 @@ import posthog from "posthog-js";
 import Manifesto from "./Manifesto"; // <--- 1. IMPORT MANIFESTO
 import AuthModal from "./auth/AuthModal";
 import { useAuth } from "./auth/AuthProvider";
-import BetaPendingModal from "./beta/BetaPendingModal";
+import { AuthPlanProvider } from "./gapper_fe/src/auth/AuthPlanContext";
+import { TerminalPlanGate } from "./gapper_fe/src/components/auth/TerminalPlanGate";
 import TerminalWorkspacePage from "./terminal/TerminalWorkspacePage";
 import {
   Terminal,
@@ -61,33 +62,12 @@ const NAV_SECONDARY_BUTTON_CLASS =
   "bg-transparent border border-slate-700 hover:border-slate-500 text-slate-300 px-6 py-2.5 rounded-lg text-sm font-bold transition disabled:opacity-50 disabled:cursor-not-allowed";
 const AUTH_PLACEHOLDER_CLASS = "w-[240px] opacity-0 pointer-events-none";
 
-const TIER_LEVELS = {
-  free: 0,
-  basic: 1,
-  premium: 2,
-};
-
-function normalizeTier(tierValue) {
-  const normalized = (tierValue || "free").trim().toLowerCase();
-  if (normalized === "basic" || normalized === "premium") {
-    return normalized;
-  }
-
-  return "free";
-}
-
-function resolveTerminalMinTier() {
-  const envTier = import.meta.env.VITE_WEB_TERMINAL_MIN_TIER;
-  const normalized = normalizeTier(envTier);
-  return normalized;
-}
-
-const TERMINAL_MIN_TIER = resolveTerminalMinTier();
-
-function canAccessTerminal(profileTier) {
-  const minTierLevel = TIER_LEVELS[TERMINAL_MIN_TIER] ?? TIER_LEVELS.free;
-  const userTierLevel = TIER_LEVELS[normalizeTier(profileTier)] ?? TIER_LEVELS.free;
-  return userTierLevel >= minTierLevel;
+function premiumGateEnabled() {
+  const raw =
+    import.meta.env.VITE_PREMIUM_GATE_ENABLED ??
+    import.meta.env.NEXT_PUBLIC_PREMIUM_GATE_ENABLED;
+  const normalized = String(raw ?? "").trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
 }
 
 const VIEW_LANDING = "landing";
@@ -637,12 +617,10 @@ const Navbar = ({
 // --- MAIN APP COMPONENT ---
 export default function App() {
   const {
+    session,
     loading,
     profileLoading,
     profile,
-    profileStatus,
-    profileError,
-    refreshProfile,
     user,
     supabaseConfigured,
     signOut,
@@ -654,8 +632,6 @@ export default function App() {
   const [authModalMode, setAuthModalMode] = useState("signin");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authActionBusy, setAuthActionBusy] = useState(false);
-  const [betaPendingOpen, setBetaPendingOpen] = useState(false);
-  const [betaCheckBusy, setBetaCheckBusy] = useState(false);
   const [activeView, setActiveView] = useState(getInitialView);
 
   const [email, setEmail] = useState("");
@@ -668,7 +644,7 @@ export default function App() {
     profile?.email ||
     user?.email ||
     "Authenticated User";
-  const terminalAllowed = canAccessTerminal(profile?.tier);
+  const gateEnabled = premiumGateEnabled();
   const setActiveViewWithPath = useCallback((nextView, { replace = false } = {}) => {
     syncPathToView(nextView, { replace });
     setActiveView(nextView);
@@ -688,17 +664,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!user) {
-      setBetaPendingOpen(false);
+    if (activeView === VIEW_TERMINAL && !loading && !user) {
+      setAuthModalMode("signin");
+      setAuthModalOpen(true);
     }
-  }, [user]);
-
-  useEffect(() => {
-    if (activeView === VIEW_TERMINAL && user && !terminalAllowed) {
-      setActiveViewWithPath(VIEW_LANDING, { replace: true });
-      setBetaPendingOpen(true);
-    }
-  }, [activeView, setActiveViewWithPath, terminalAllowed, user]);
+  }, [activeView, loading, user]);
 
   const scrollToAccess = () => {
     const accessSection = document.getElementById("access");
@@ -737,25 +707,7 @@ export default function App() {
       return;
     }
 
-    if (!terminalAllowed) {
-      setBetaPendingOpen(true);
-      return;
-    }
-
     setActiveViewWithPath(VIEW_TERMINAL);
-  };
-
-  const handleCheckBetaAgain = async () => {
-    setBetaCheckBusy(true);
-
-    try {
-      await refreshProfile({
-        reason: "terminal-tier-check",
-        showLoading: true,
-      });
-    } finally {
-      setBetaCheckBusy(false);
-    }
   };
 
   const handleJoinWaitlist = async (e) => {
@@ -816,17 +768,20 @@ export default function App() {
           onClose={() => setAuthModalOpen(false)}
           onSwitchMode={setAuthModalMode}
         />
-        <BetaPendingModal
-          isOpen={betaPendingOpen}
-          onClose={() => setBetaPendingOpen(false)}
-          email={user?.email ?? profile?.email ?? ""}
-          onCheckAgain={handleCheckBetaAgain}
-          checking={betaCheckBusy || profileLoading}
-          profileStatus={profileStatus}
-          profileError={profileError}
-          variant="subscribed"
-        />
-        <TerminalWorkspacePage />
+        <AuthPlanProvider
+          sessionToken={session?.access_token ?? null}
+          gateEnabled={gateEnabled}
+        >
+          <TerminalPlanGate
+            authenticated={Boolean(user)}
+            onOpenSignIn={() => openAuthModal("signin")}
+            onSignOut={() => {
+              void handleSignOut();
+            }}
+          >
+            <TerminalWorkspacePage />
+          </TerminalPlanGate>
+        </AuthPlanProvider>
       </>
     );
   }
@@ -844,16 +799,6 @@ export default function App() {
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         onSwitchMode={setAuthModalMode}
-      />
-      <BetaPendingModal
-        isOpen={betaPendingOpen}
-        onClose={() => setBetaPendingOpen(false)}
-        email={user?.email ?? profile?.email ?? ""}
-        onCheckAgain={handleCheckBetaAgain}
-        checking={betaCheckBusy || profileLoading}
-        profileStatus={profileStatus}
-        profileError={profileError}
-        variant="subscribed"
       />
 
       {/* 4. PASS OPEN FUNCTION TO NAVBAR */}
